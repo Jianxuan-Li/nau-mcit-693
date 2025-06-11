@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-mapboxgl.accessToken = 'XXXXX';
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 function TrackUpload() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -205,7 +205,7 @@ function TrackUpload() {
             name="name"
             value={trackInfo.name}
             onChange={handleTrackInfoChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10 px-3"
           />
         </div>
         <div>
@@ -214,7 +214,7 @@ function TrackUpload() {
             name="difficulty"
             value={trackInfo.difficulty}
             onChange={handleTrackInfoChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10"
           >
             <option value="easy">Easy</option>
             <option value="moderate">Moderate</option>
@@ -229,7 +229,7 @@ function TrackUpload() {
             value={trackInfo.scenery}
             onChange={handleTrackInfoChange}
             rows="3"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3"
           />
         </div>
         <div>
@@ -239,7 +239,7 @@ function TrackUpload() {
             value={trackInfo.description}
             onChange={handleTrackInfoChange}
             rows="4"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3"
           />
         </div>
       </div>
