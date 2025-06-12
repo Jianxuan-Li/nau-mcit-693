@@ -1,0 +1,25 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpxbase-frontend
+  labels:
+    app: gpxbase-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gpxbase-frontend
+  template:
+    metadata:
+      labels:
+        app: gpxbase-frontend
+    spec:
+      imagePullSecrets:
+        - name: azure-host-ghcr-secret
+      containers:
+        - name: gpxbase-frontend
+          image: ghcr.io/jianxuan-li/nau-mcit-693/frontend:latest
+          ports:
+            - containerPort: 80
+            - containerPort: 443
