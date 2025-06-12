@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ghcr.io/jianxuan-li/nau-mcit-693/frontend:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/ssl/cloudflare/gpxbase.com.pem:/etc/nginx/ssl/gpxbase.com.pem:ro
+      - /etc/ssl/cloudflare/gpxbase.com.key:/etc/nginx/ssl/gpxbase.com.key:ro
+    restart: unless-stopped 
