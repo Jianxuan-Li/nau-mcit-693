@@ -1,5 +1,11 @@
 # gpxbase.com
 
+## Architect
+
+```
+
+```
+
 ## Deployment
 
 ### Minimalized K3s installation
@@ -35,3 +41,6 @@ kubectl create secret docker-registry azure-host-ghcr-secret \
 ```shell
 kubectl create secret tls gpxbase-tls   --cert=/etc/ssl/cloudflare/gpxbase.com.pem   --key=/etc/ssl/cloudflare/gpxbase.com.key
 ```
+
+3. Apply `nginx-ingress.yml` to create ingress controller and needed resources
+4. deploy pods and service
