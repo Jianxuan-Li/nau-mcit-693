@@ -12,5 +12,8 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  define: {
+    'process.env.VITE_MAPBOX_ACCESS_TOKEN': JSON.stringify(process.env.VITE_MAPBOX_ACCESS_TOKEN)
   }
-}); 
+});
