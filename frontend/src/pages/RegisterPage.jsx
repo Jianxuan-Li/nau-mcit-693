@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function RegisterPage() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
+    name: '',
     agreeToTerms: false
   });
 
@@ -13,9 +15,12 @@ function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    terms: ''
+    name: '',
+    terms: '',
+    api: ''
   });
 
+  const [isLoading, setIsLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     message: ''
@@ -106,11 +111,43 @@ function RegisterPage() {
     );
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isFormValid()) {
-      // TODO: Implement registration logic
-      console.log('Form submitted:', formData);
+      setIsLoading(true);
+      setErrors(prev => ({ ...prev, api: '' }));
+      
+      try {
+        const response = await fetch('/api/v1/users/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Registration failed');
+        }
+
+        // Registration successful
+        navigate('/login', { 
+          state: { message: 'Registration successful! Please log in.' }
+        });
+      } catch (error) {
+        setErrors(prev => ({
+          ...prev,
+          api: error.message || 'An error occurred during registration'
+        }));
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -122,7 +159,33 @@ function RegisterPage() {
           <p className="mt-2 text-gray-600">Join our hiking community today</p>
         </div>
 
+        {errors.api && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-600">{errors.api}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Full Name
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 ${
+                errors.name ? 'border-red-500' : ''
+              } px-4 py-3 text-base`}
+              required
+            />
+            {errors.name && (
+              <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+            )}
+          </div>
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email Address
@@ -227,14 +290,14 @@ function RegisterPage() {
 
           <button
             type="submit"
-            disabled={!isFormValid()}
+            disabled={!isFormValid() || isLoading}
             className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-              isFormValid()
+              isFormValid() && !isLoading
                 ? 'bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
           >
-            Create Account
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
