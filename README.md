@@ -29,7 +29,7 @@
 ## Development
 
 1. run `docker compose up -d` to start db
-2. create `.env` in backend folder and start bacend svc(check readme)
+2. create `.env` in backend folder and start backend svc(check readme)
 3. create `.env` in frontend folder and start frontend svc(check readme)
 
 Note: after work done, can shutdown db with `docker compose down`, however since it use docker volumn to retain the data, so data will not lost.
