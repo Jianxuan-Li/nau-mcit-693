@@ -1,13 +1,12 @@
 package main
 
 import (
-	"context"
 	"log"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/yourusername/backend/config"
+	"github.com/Jianxuan-Li/nau-mcit-693/backend/api"
+	"github.com/Jianxuan-Li/nau-mcit-693/backend/config"
 )
 
 func main() {
@@ -26,31 +25,12 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Initialize Gin router
-	r := gin.Default()
+	// Setup router with database connection
+	r := api.SetupRouter(pool)
 
 	// Add middleware
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-
-	// Health check endpoint
-	r.GET("/health", func(c *gin.Context) {
-		// 检查数据库连接
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-		defer cancel()
-
-		if err := pool.Ping(ctx); err != nil {
-			c.JSON(500, gin.H{
-				"status": "error",
-				"error":  "Database connection failed",
-			})
-			return
-		}
-
-		c.JSON(200, gin.H{
-			"status": "ok",
-		})
-	})
 
 	// Start server
 	log.Printf("Server starting on port %s", cfg.Port)

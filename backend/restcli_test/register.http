@@ -1,0 +1,39 @@
+### Test 1: Valid registration
+POST http://localhost:8000/api/v1/users/register
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123",
+    "name": "Test User"
+}
+
+### Test 2: Invalid email
+POST http://localhost:8000/api/v1/users/register
+Content-Type: application/json
+
+{
+    "email": "invalid-email",
+    "password": "password123",
+    "name": "Test User"
+}
+
+### Test 3: Short password
+POST http://localhost:8000/api/v1/users/register
+Content-Type: application/json
+
+{
+    "email": "test2@example.com",
+    "password": "123",
+    "name": "Test User"
+}
+
+### Test 4: Duplicate email
+POST http://localhost:8000/api/v1/users/register
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123",
+    "name": "Another User"
+} 
