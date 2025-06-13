@@ -1,12 +1,33 @@
-version: '3.8'
-
 services:
-  frontend:
-    image: ghcr.io/jianxuan-li/nau-mcit-693/frontend:latest
+  postgis:
+    container_name: postgis
+    image: postgis/postgis:17-3.5
     ports:
-      - "80:80"
-      - "443:443"
+      - "0.0.0.0:5432:5432"
     volumes:
-      - /etc/ssl/cloudflare/gpxbase.com.pem:/etc/nginx/ssl/gpxbase.com.pem:ro
-      - /etc/ssl/cloudflare/gpxbase.com.key:/etc/nginx/ssl/gpxbase.com.key:ro
-    restart: unless-stopped 
+      - gpxbase-backend-postgisdb:/var/lib/postgresql/data
+    env_file: .env
+    networks:
+      - default
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    ports:
+      - "0.0.0.0:8001:80"
+    env_file: .env
+    volumes:
+      - ./pgadmin4-servers.json:/pgadmin4/servers.json
+    depends_on:
+      - postgis
+    networks:
+      - default
+    links:
+      - postgis:postgis
+
+volumes:
+  gpxbase-backend-pypoetrycache:
+  gpxbase-backend-postgisdb:
+
+networks:
+  default:
+    name: gpxbase-backend-network
