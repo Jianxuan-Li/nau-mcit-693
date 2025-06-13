@@ -1,0 +1,63 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yeti2-postgis-env
+  namespace: default
+data:
+  PGDATA: /var/lib/postgresql/data/pgdata
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: gpxbase
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgis17
+spec:
+  selector:
+    app: postgis17
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgis17
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgis17
+  labels:
+    app: postgis17
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgis17
+  template:
+    metadata:
+      labels:
+        app: postgis17
+    spec:
+      containers:
+        - name: postgis17
+          image: postgis/postgis:17-3.5
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: yeti2-postgis-env
+          volumeMounts:
+            - name: backup
+              mountPath: /data
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: backup
+          hostPath:
+            path: /root/data/postgis17-backup/
+        - name: pgdata
+          hostPath:
+            path: /root/data/postgis17/
