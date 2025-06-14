@@ -14,16 +14,20 @@ func SetupRouter(db *pgxpool.Pool) *gin.Engine {
 	userHandler := handlers.NewUserHandler(db)
 	healthHandler := handlers.NewHealthHandler(db)
 
-	// Health check
-	r.GET("/health", healthHandler.CheckHealth)
-
-	// API v1 group
-	v1 := r.Group("/api/v1")
+	// API group
+	api := r.Group("/api")
 	{
-		// User routes
-		users := v1.Group("/users")
+		// Health check
+		api.GET("/health", healthHandler.CheckHealth)
+
+		// API v1 group
+		v1 := api.Group("/v1")
 		{
-			users.POST("/register", userHandler.RegisterUser)
+			// User routes
+			users := v1.Group("/users")
+			{
+				users.POST("/register", userHandler.RegisterUser)
+			}
 		}
 	}
 
