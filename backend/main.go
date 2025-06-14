@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/Jianxuan-Li/nau-mcit-693/backend/api"
-	"github.com/Jianxuan-Li/nau-mcit-693/backend/config"
+	"gpxbase/backend/api"
+	"gpxbase/backend/config"
 )
 
 func main() {

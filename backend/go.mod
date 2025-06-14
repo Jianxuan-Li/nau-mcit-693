@@ -1,4 +1,4 @@
-module github.com/Jianxuan-Li/nau-mcit-693/backend
+module gpxbase/backend
 
 go 1.24
 

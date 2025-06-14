@@ -1,0 +1,67 @@
+name: Build and Push Backend Docker Image
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/backend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PORT=8000
+            ENV=production
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_SSL_MODE=${{ secrets.DB_SSL_MODE }}
+            DB_MAX_CONNS=${{ secrets.DB_MAX_CONNS }}
+            DB_MIN_CONNS=${{ secrets.DB_MIN_CONNS }}
+            DB_MAX_CONN_LIFETIME=${{ secrets.DB_MAX_CONN_LIFETIME }}
+            DB_MAX_CONN_IDLE_TIME=${{ secrets.DB_MAX_CONN_IDLE_TIME }}
+
+      - name: Set release tag
+        run: |
+          echo "RELEASE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+
+      - name: Display image info
+        run: |
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          echo "Release Tag: ${{ env.RELEASE_TAG }}"
+          echo "All Tags: ${{ steps.meta.outputs.tags }}" 

@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/Jianxuan-Li/nau-mcit-693/backend/models"
-	"github.com/Jianxuan-Li/nau-mcit-693/backend/utils"
+	"gpxbase/backend/models"
+	"gpxbase/backend/utils"
 )
 
 type UserHandler struct {
