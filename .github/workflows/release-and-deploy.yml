@@ -148,7 +148,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.ref_name }}
         run: |
-          sed -i "s@__IMAGE_TAG__@$IMAGE_TAG@g" k8s/deployment.yaml
+          sed -i "s@__IMAGE_TAG__@$IMAGE_TAG@g" k8s/deployment.yml
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -178,4 +178,4 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_PRIVATE_KEY }}
           script: |
-            kubectl apply -f ${{secrets.DEPLOYMENTS_PATH}}/${{ github.ref_name }}/deployment.yaml
+            kubectl apply -f ${{secrets.DEPLOYMENTS_PATH}}/${{ github.ref_name }}/deployment.yml
