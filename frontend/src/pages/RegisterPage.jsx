@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { userApi } from '../utils/request';
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  
+  useEffect(() => {
+    if (userApi.isAuthenticated()) {
+      navigate('/dashboard');
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [navigate]);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -118,23 +129,11 @@ function RegisterPage() {
       setErrors(prev => ({ ...prev, api: '' }));
       
       try {
-        const response = await fetch('/api/v1/users/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-            name: formData.name
-          }),
+        await userApi.register({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name
         });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Registration failed');
-        }
 
         // Registration successful
         navigate('/login', { 
@@ -150,6 +149,14 @@ function RegisterPage() {
       }
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12 px-4 sm:px-6 lg:px-8">

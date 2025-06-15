@@ -13,11 +13,15 @@ import (
 )
 
 type UserHandler struct {
-	db *pgxpool.Pool
+	db        *pgxpool.Pool
+	jwtSecret []byte
 }
 
-func NewUserHandler(db *pgxpool.Pool) *UserHandler {
-	return &UserHandler{db: db}
+func NewUserHandler(db *pgxpool.Pool, jwtSecret []byte) *UserHandler {
+	return &UserHandler{
+		db:        db,
+		jwtSecret: jwtSecret,
+	}
 }
 
 func (h *UserHandler) RegisterUser(c *gin.Context) {
@@ -87,5 +91,107 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User created successfully",
 		"user":    response,
+	})
+}
+
+func (h *UserHandler) LoginUser(c *gin.Context) {
+	var req models.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request data",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	var user models.User
+	err := h.db.QueryRow(ctx, 
+		"SELECT id, email, password_hash, name, created_at, is_active, email_verified, last_login FROM users WHERE email = $1",
+		req.Email,
+	).Scan(
+		&user.ID, &user.Email, &user.PasswordHash, &user.Name,
+		&user.CreatedAt, &user.IsActive, &user.EmailVerified, &user.LastLogin,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid email or password",
+		})
+		return
+	}
+
+	if !user.IsActive {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Account is not active",
+		})
+		return
+	}
+
+	if !utils.CheckPasswordHash(req.Password, user.PasswordHash) {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid email or password",
+		})
+		return
+	}
+
+	// Update last login time
+	now := time.Now()
+	_, err = h.db.Exec(ctx, "UPDATE users SET last_login = $1 WHERE id = $2", now, user.ID)
+	if err != nil {
+		// Log the error but don't fail the login
+		// TODO: Add proper logging
+	}
+
+	// Generate JWT token
+	token, err := utils.GenerateToken(user.ID.String(), user.Email, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to generate authentication token",
+		})
+		return
+	}
+
+	response := user.ToResponse()
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"user":    response,
+		"token":   token,
+	})
+}
+
+func (h *UserHandler) GetCurrentUser(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	var user models.User
+	err := h.db.QueryRow(ctx, 
+		"SELECT id, email, name, created_at, is_active, email_verified, last_login FROM users WHERE id = $1",
+		userID,
+	).Scan(
+		&user.ID, &user.Email, &user.Name,
+		&user.CreatedAt, &user.IsActive, &user.EmailVerified, &user.LastLogin,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get user information",
+		})
+		return
+	}
+
+	response := user.ToResponse()
+	c.JSON(http.StatusOK, gin.H{
+		"user": response,
 	})
 }

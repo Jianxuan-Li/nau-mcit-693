@@ -14,6 +14,7 @@ type Config struct {
 	Port     string
 	Env      string
 	Database DatabaseConfig
+	JWT      JWTConfig
 }
 
 type DatabaseConfig struct {
@@ -29,7 +30,16 @@ type DatabaseConfig struct {
 	MaxConnIdleTime time.Duration
 }
 
+type JWTConfig struct {
+	SecretKey []byte
+}
+
 func LoadConfig() *Config {
+	jwtSecret := getEnv("JWT_SECRET", "your-256-bit-secret")
+	if len(jwtSecret) < 32 {
+		log.Fatal("JWT_SECRET must be at least 32 characters long")
+	}
+
 	return &Config{
 		Port: getEnv("PORT", "8000"),
 		Env:  getEnv("ENV", "development"),
@@ -40,10 +50,13 @@ func LoadConfig() *Config {
 			Password:        getEnv("DB_PASSWORD", ""),
 			DBName:          getEnv("DB_NAME", "mydb"),
 			SSLMode:         getEnv("DB_SSL_MODE", "disable"),
-			MaxConns:        25, // 默认最大连接数
-			MinConns:        5,  // 默认最小连接数
+			MaxConns:        10, // default max connections
+			MinConns:        1,  // default min connections
 			MaxConnLifetime: time.Hour,
 			MaxConnIdleTime: time.Minute * 30,
+		},
+		JWT: JWTConfig{
+			SecretKey: []byte(jwtSecret),
 		},
 	}
 }
@@ -59,19 +72,16 @@ func (c *DatabaseConfig) Connect() (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("unable to parse database config: %v", err)
 	}
 
-	// 配置连接池参数
 	config.MaxConns = c.MaxConns
 	config.MinConns = c.MinConns
 	config.MaxConnLifetime = c.MaxConnLifetime
 	config.MaxConnIdleTime = c.MaxConnIdleTime
 
-	// 创建连接池
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create connection pool: %v", err)
 	}
 
-	// 测试连接
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

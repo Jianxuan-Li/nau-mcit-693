@@ -1,7 +1,19 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { userApi } from '../utils/request';
 
 function LoginPage() {
+  const navigate = useNavigate();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  
+  useEffect(() => {
+    if (userApi.isAuthenticated()) {
+      navigate('/dashboard');
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [navigate]);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -17,6 +29,7 @@ function LoginPage() {
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [captchaValue, setCaptchaValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,22 +62,48 @@ function LoginPage() {
     );
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isFormValid()) {
-      // TODO: Implement login logic
-      console.log('Form submitted:', formData);
-      
-      // Simulate failed login attempts
-      setLoginAttempts(prev => {
-        const newAttempts = prev + 1;
-        if (newAttempts >= 3) {
-          setShowCaptcha(true);
-        }
-        return newAttempts;
-      });
+      setIsLoading(true);
+      setErrors(prev => ({ ...prev, general: '' }));
+
+      try {
+        await userApi.login(formData.email, formData.password);
+        
+        // Reset login attempts on successful login
+        setLoginAttempts(0);
+        setShowCaptcha(false);
+
+        // Redirect to dashboard or home page
+        navigate('/dashboard');
+      } catch (error) {
+        setErrors(prev => ({
+          ...prev,
+          general: error.message || 'An error occurred during login'
+        }));
+        
+        // Increment login attempts
+        setLoginAttempts(prev => {
+          const newAttempts = prev + 1;
+          if (newAttempts >= 3) {
+            setShowCaptcha(true);
+          }
+          return newAttempts;
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12 px-4 sm:px-6 lg:px-8">
@@ -167,14 +206,14 @@ function LoginPage() {
 
           <button
             type="submit"
-            disabled={!isFormValid()}
+            disabled={!isFormValid() || isLoading}
             className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-              isFormValid()
+              isFormValid() && !isLoading
                 ? 'bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
           >
-            Sign in
+            {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 

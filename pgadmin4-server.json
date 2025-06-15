@@ -1,0 +1,14 @@
+{
+    "Servers": {
+      "1": {
+        "Name": "gpxbase-backend-postgis",
+        "Group": "PostGIS in Docker",
+        "Port": 5432,
+        "Username": "postgres",
+        "Host": "postgis",
+        "SSLMode": "prefer",
+        "MaintenanceDB": "postgres",
+        "Comment": "password is postgres"
+      }
+    }
+  }

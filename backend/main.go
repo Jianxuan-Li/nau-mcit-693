@@ -25,8 +25,8 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Setup router with database connection
-	r := api.SetupRouter(pool)
+	// Setup router with database connection and config
+	r := api.SetupRouter(pool, cfg)
 
 	// Add middleware
 	r.Use(gin.Logger())
