@@ -115,6 +115,9 @@ jobs:
       - name: Cleanup old frontend images
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          repository: ${{ github.event.repository.name }}
           package: frontend
           keep-n-tagged: 3
           delete-untagged: true
@@ -128,6 +131,9 @@ jobs:
       - name: Cleanup old backend images
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          repository: ${{ github.event.repository.name }}
           package: backend
           keep-n-tagged: 3
           delete-untagged: true 
