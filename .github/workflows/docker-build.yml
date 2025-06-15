@@ -137,3 +137,45 @@ jobs:
           package: nau-mcit-693/backend
           keep-n-tagged: 3
           delete-untagged: true 
+
+  generate-artifacts:
+    needs: [build-and-push-frontend, build-and-push-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Generate k8s deployment file
+        env:
+          IMAGE_TAG: ${{ github.ref_name }}
+        run: |
+          sed -i "s@__IMAGE_TAG__@$IMAGE_TAG@g" k8s/deployment.yaml
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-deployment-${{ github.ref_name }}
+          path: ${{ github.ref_name }}
+
+  deploy-to-k8s:
+    needs: generate-artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-deployment-${{ github.ref_name }}
+      - name: scp to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_PRIVATE_KEY }}
+          source: ${{ github.ref_name }}
+          target: ${{ secrets.DEPLOYMENTS_PATH }}/${{ github.ref_name }}
+      - name : apply deployment by ssh
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_PRIVATE_KEY }}
+          script: |
+            kubectl apply -f ${{secrets.DEPLOYMENTS_PATH}}/${{ github.ref_name }}/deployment.yaml
