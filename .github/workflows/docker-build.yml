@@ -115,7 +115,7 @@ jobs:
       - name: Cleanup old frontend images
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          package: ${{ env.FRONTEND_IMAGE_NAME }}
+          package: frontend
           keep-n-tagged: 3
           delete-untagged: true
 
@@ -128,6 +128,6 @@ jobs:
       - name: Cleanup old backend images
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          package: ${{ env.BACKEND_IMAGE_NAME }}
+          package: backend
           keep-n-tagged: 3
           delete-untagged: true 
