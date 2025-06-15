@@ -104,4 +104,30 @@ jobs:
         run: |
           echo "Backend Image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}"
           echo "Release Tag: ${{ github.ref_name }}"
-          echo "All Tags: ${{ steps.meta-backend.outputs.tags }}" 
+          echo "All Tags: ${{ steps.meta-backend.outputs.tags }}"
+
+  cleanup-frontend-images:
+    needs: build-and-push-frontend
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Cleanup old frontend images
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: ${{ env.FRONTEND_IMAGE_NAME }}
+          keep-n-tagged: 3
+          delete-untagged: true
+
+  cleanup-backend-images:
+    needs: build-and-push-backend
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Cleanup old backend images
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: ${{ env.BACKEND_IMAGE_NAME }}
+          keep-n-tagged: 3
+          delete-untagged: true 
