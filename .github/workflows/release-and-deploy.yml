@@ -153,7 +153,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.repository.name }}-deployment-${{ github.ref_name }}
-          path: ${{ github.ref_name }}
+          path: k8s/deployment.yml
 
   deploy-to-k8s:
     needs: generate-artifacts
@@ -169,7 +169,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_PRIVATE_KEY }}
-          source: ${{ github.ref_name }}
+          source: k8s/deployment.yml
           target: ${{ secrets.DEPLOYMENTS_PATH }}/${{ github.ref_name }}
       - name : apply deployment by ssh
         uses: appleboy/ssh-action@master
