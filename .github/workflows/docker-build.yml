@@ -118,7 +118,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           owner: ${{ github.repository_owner }}
           repository: ${{ github.event.repository.name }}
-          package: frontend
+          package: nau-mcit-693/frontend
           keep-n-tagged: 3
           delete-untagged: true
 
@@ -134,6 +134,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           owner: ${{ github.repository_owner }}
           repository: ${{ github.event.repository.name }}
-          package: backend
+          package: nau-mcit-693/backend
           keep-n-tagged: 3
           delete-untagged: true 
