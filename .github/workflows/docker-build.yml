@@ -98,6 +98,7 @@ jobs:
             DB_MIN_CONNS=${{ secrets.DB_MIN_CONNS }}
             DB_MAX_CONN_LIFETIME=${{ secrets.DB_MAX_CONN_LIFETIME }}
             DB_MAX_CONN_IDLE_TIME=${{ secrets.DB_MAX_CONN_IDLE_TIME }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
 
       - name: Display backend image info
         run: |
