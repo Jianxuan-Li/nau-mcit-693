@@ -29,9 +29,6 @@ function LoginPage() {
     general: ''
   });
 
-  const [loginAttempts, setLoginAttempts] = useState(0);
-  const [showCaptcha, setShowCaptcha] = useState(false);
-  const [captchaValue, setCaptchaValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const validateEmail = (email) => {
@@ -60,8 +57,7 @@ function LoginPage() {
   const isFormValid = () => {
     return (
       validateEmail(formData.email) &&
-      formData.password.length > 0 &&
-      (!showCaptcha || captchaValue.length > 0)
+      formData.password.length > 0
     );
   };
 
@@ -74,10 +70,6 @@ function LoginPage() {
       try {
         await login(formData.email, formData.password);
         
-        // Reset login attempts on successful login
-        setLoginAttempts(0);
-        setShowCaptcha(false);
-
         // Redirect to the original page or dashboard
         const from = location.state?.from || '/dashboard';
         navigate(from);
@@ -86,15 +78,6 @@ function LoginPage() {
           ...prev,
           general: error.message || 'An error occurred during login'
         }));
-        
-        // Increment login attempts
-        setLoginAttempts(prev => {
-          const newAttempts = prev + 1;
-          if (newAttempts >= 3) {
-            setShowCaptcha(true);
-          }
-          return newAttempts;
-        });
       } finally {
         setIsLoading(false);
       }
@@ -157,28 +140,6 @@ function LoginPage() {
               <p className="mt-1 text-sm text-red-600">{errors.password}</p>
             )}
           </div>
-
-          {showCaptcha && (
-            <div>
-              <label htmlFor="captcha" className="block text-sm font-medium text-gray-700">
-                Security Check
-              </label>
-              <div className="mt-1 flex items-center space-x-4">
-                <div className="flex-1 bg-gray-100 p-2 rounded text-center font-mono text-lg">
-                  {Math.random().toString(36).substring(2, 8).toUpperCase()}
-                </div>
-                <input
-                  type="text"
-                  id="captcha"
-                  value={captchaValue}
-                  onChange={(e) => setCaptchaValue(e.target.value)}
-                  className="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 px-4 py-3 text-base"
-                  placeholder="Enter code"
-                  required
-                />
-              </div>
-            </div>
-          )}
 
           <div className="flex items-center justify-between">
             <div className="flex items-center">
