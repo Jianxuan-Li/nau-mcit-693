@@ -23,6 +23,12 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder /app/main .
 
+# Create directory for GPX files
+RUN mkdir -p /app/gpx_files
+
+# Create volume mount point
+VOLUME ["/app/gpx_files"]
+
 # Define build arguments with default values
 ARG PORT=8000
 ARG ENV=development

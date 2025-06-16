@@ -22,7 +22,6 @@ spec:
           image: ghcr.io/jianxuan-li/nau-mcit-693/frontend:__IMAGE_TAG__
           ports:
             - containerPort: 80
-            - containerPort: 443
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -47,4 +46,14 @@ spec:
           image: ghcr.io/jianxuan-li/nau-mcit-693/backend:__IMAGE_TAG__
           ports:
             - containerPort: 80
-            - containerPort: 443
+          env:
+            - name: GPX_FILES_DIR
+              value: /app/gpx_files
+          volumeMounts:
+            - name: gpx-files-storage
+              mountPath: /app/gpx_files
+      volumes:
+        - name: gpx-files-storage
+          hostPath:
+            path: /home/azureuser/data/gpxbase/gpx_files
+            type: DirectoryOrCreate

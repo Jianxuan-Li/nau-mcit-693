@@ -1,0 +1,303 @@
+### Login
+# @name login
+POST http://localhost:8000/api/v1/users/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123"
+}
+
+### Get JWT Token
+@jwt_token = {{login.response.body.token}}
+
+### Upload GPX File for Trail Testing
+# @name gpx_upload
+POST http://localhost:8000/api/v1/gpx/upload
+Authorization: Bearer {{jwt_token}}
+Content-Type: multipart/form-data; boundary=boundary123
+
+--boundary123
+Content-Disposition: form-data; name="gpx_file"; filename="mountain_trail.gpx"
+Content-Type: application/gpx+xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="TrailTest" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Mountain Trail</name>
+    <trkseg>
+      <trkpt lat="37.7749" lon="-122.4194">
+        <ele>150</ele>
+        <time>2024-01-01T10:00:00Z</time>
+      </trkpt>
+      <trkpt lat="37.7760" lon="-122.4180">
+        <ele>200</ele>
+        <time>2024-01-01T10:05:00Z</time>
+      </trkpt>
+      <trkpt lat="37.7770" lon="-122.4160">
+        <ele>300</ele>
+        <time>2024-01-01T10:15:00Z</time>
+      </trkpt>
+      <trkpt lat="37.7780" lon="-122.4140">
+        <ele>450</ele>
+        <time>2024-01-01T10:30:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+--boundary123
+Content-Disposition: form-data; name="description"
+
+Beautiful mountain trail with scenic views
+--boundary123
+Content-Disposition: form-data; name="create_trail"
+
+true
+--boundary123--
+
+### Get GPX ID for Trail Creation
+@gpx_id = {{gpx_upload.response.body.gpx.id}}
+
+###
+### TRAIL API TESTS
+###
+
+### Create Trail (with GPX association)
+# @name create_trail_with_gpx
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "gpx_id": "{{gpx_id}}",
+    "name": "Beautiful Mountain Trail",
+    "difficulty": "moderate",
+    "scenery_description": "Scenic mountain trail with waterfalls and ancient trees, beautiful wildflowers in spring",
+    "additional_notes": "Recommend bringing hiking poles and plenty of water. Be careful during rainy season as trails can be slippery.",
+    "total_distance": 5.2,
+    "max_elevation_gain": 300,
+    "estimated_duration": 120
+}
+
+### Get Trail ID
+@trail_id = {{create_trail_with_gpx.response.body.trail.id}}
+
+### Create Trail (without GPX association)
+# @name create_trail_standalone
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "City Park Lake Loop",
+    "difficulty": "easy",
+    "scenery_description": "Peaceful lake trail with beautiful scenery, perfect for family outings",
+    "additional_notes": "Flat paved trail suitable for jogging and walking, has rest areas and water fountains",
+    "total_distance": 3.5,
+    "max_elevation_gain": 20,
+    "estimated_duration": 45
+}
+
+### Get Standalone Trail ID  
+@standalone_trail_id = {{create_trail_standalone.response.body.trail.id}}
+
+### Get All User Trails
+GET http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+
+### Get Specific Trail
+GET http://localhost:8000/api/v1/trails/{{trail_id}}
+Authorization: Bearer {{jwt_token}}
+
+### Update Trail - Partial Update
+PUT http://localhost:8000/api/v1/trails/{{trail_id}}
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "difficulty": "hard",
+    "scenery_description": "Challenging mountain trail with spectacular views, waterfalls, ancient trees and unique rock formations. Beautiful wildflowers in spring, stunning fall foliage",
+    "estimated_duration": 150
+}
+
+### Update Trail - Complete Update
+PUT http://localhost:8000/api/v1/trails/{{standalone_trail_id}}
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "City Park Lake Fitness Loop",
+    "difficulty": "moderate",
+    "scenery_description": "Beautiful lake trail with new fitness equipment areas",
+    "additional_notes": "Upgraded trail with outdoor fitness equipment, perfect for workout enthusiasts",
+    "total_distance": 4.0,
+    "max_elevation_gain": 35,
+    "estimated_duration": 60
+}
+
+###
+### ERROR TESTING
+###
+
+### Create Trail with Invalid Difficulty
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "Test Invalid Trail",
+    "difficulty": "invalid_level",
+    "total_distance": 5.0,
+    "estimated_duration": 60
+}
+
+### Create Trail with Invalid GPX ID
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "gpx_id": "00000000-0000-0000-0000-000000000000",
+    "name": "Test Invalid GPX",
+    "difficulty": "easy",
+    "total_distance": 5.0,
+    "estimated_duration": 60
+}
+
+### Create Trail with Missing Required Fields
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "difficulty": "easy"
+}
+
+### Get Non-existent Trail
+GET http://localhost:8000/api/v1/trails/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{jwt_token}}
+
+### Update Non-existent Trail
+PUT http://localhost:8000/api/v1/trails/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "Updated Name"
+}
+
+### Update Trail with No Fields
+PUT http://localhost:8000/api/v1/trails/{{trail_id}}
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{}
+
+###
+### CLEANUP TESTS
+###
+
+### Delete Specific Trail
+DELETE http://localhost:8000/api/v1/trails/{{standalone_trail_id}}
+Authorization: Bearer {{jwt_token}}
+
+### Delete Trail with GPX Association
+DELETE http://localhost:8000/api/v1/trails/{{trail_id}}
+Authorization: Bearer {{jwt_token}}
+
+### Try to Delete Already Deleted Trail
+DELETE http://localhost:8000/api/v1/trails/{{trail_id}}
+Authorization: Bearer {{jwt_token}}
+
+### Clean up GPX File (this should work since trails are deleted)
+DELETE http://localhost:8000/api/v1/gpx/{{gpx_id}}
+Authorization: Bearer {{jwt_token}}
+
+###
+### AUTHORIZATION TESTS
+###
+
+### Try to Create Trail without Authentication
+POST http://localhost:8000/api/v1/trails
+Content-Type: application/json
+
+{
+    "name": "Unauthorized Trail",
+    "difficulty": "easy",
+    "total_distance": 5.0,
+    "estimated_duration": 60
+}
+
+### Try to Get Trails without Authentication
+GET http://localhost:8000/api/v1/trails
+
+### Try to Update Trail without Authentication
+PUT http://localhost:8000/api/v1/trails/{{trail_id}}
+Content-Type: application/json
+
+{
+    "name": "Unauthorized Update"
+}
+
+### Try to Delete Trail without Authentication
+DELETE http://localhost:8000/api/v1/trails/{{trail_id}}
+
+###
+### DIFFICULTY LEVEL TESTING
+###
+
+### Create Easy Trail
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "Easy Nature Walk",
+    "difficulty": "easy",
+    "scenery_description": "Gentle nature trail through peaceful woods",
+    "total_distance": 2.0,
+    "max_elevation_gain": 10,
+    "estimated_duration": 30
+}
+
+### Create Moderate Trail  
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "Moderate Hill Trail",
+    "difficulty": "moderate", 
+    "scenery_description": "Moderate difficulty hill trail with nice views",
+    "total_distance": 5.0,
+    "max_elevation_gain": 200,
+    "estimated_duration": 90
+}
+
+### Create Hard Trail
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "Challenging Mountain Trail",
+    "difficulty": "hard",
+    "scenery_description": "Challenging mountain trail with steep sections",
+    "total_distance": 8.0,
+    "max_elevation_gain": 500,
+    "estimated_duration": 180
+}
+
+### Create Expert Trail
+POST http://localhost:8000/api/v1/trails
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+    "name": "Expert Peak Ascent",
+    "difficulty": "expert",
+    "scenery_description": "Expert level summit trail for experienced hikers",
+    "total_distance": 12.0,
+    "max_elevation_gain": 1000,
+    "estimated_duration": 360
+}

@@ -1,0 +1,55 @@
+### Login
+# @name login
+POST http://localhost:8000/api/v1/users/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123"
+}
+
+### Get JWT Token
+@jwt_token = {{login.response.body.token}}
+
+### Upload GPX File
+POST http://localhost:8000/api/v1/gpx/upload
+Authorization: Bearer {{jwt_token}}
+Content-Type: multipart/form-data; boundary=boundary123
+
+--boundary123
+Content-Disposition: form-data; name="gpx_file"; filename="test_track.gpx"
+Content-Type: application/gpx+xml
+
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Test" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Test Track</name>
+    <trkseg>
+      <trkpt lat="37.7749" lon="-122.4194">
+        <ele>50</ele>
+        <time>2024-01-01T10:00:00Z</time>
+      </trkpt>
+      <trkpt lat="37.7750" lon="-122.4193">
+        <ele>51</ele>
+        <time>2024-01-01T10:01:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+--boundary123
+Content-Disposition: form-data; name="description"
+
+My first test GPX track
+--boundary123--
+
+### Get User GPX Files
+GET http://localhost:8000/api/v1/gpx/
+Authorization: Bearer {{jwt_token}}
+
+### Get Specific GPX File
+GET http://localhost:8000/api/v1/gpx/{{gpx_id}}
+Authorization: Bearer {{jwt_token}}
+
+### Delete GPX File
+DELETE http://localhost:8000/api/v1/gpx/{{gpx_id}}
+Authorization: Bearer {{jwt_token}}

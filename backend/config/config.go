@@ -67,8 +67,11 @@ func (c *DatabaseConfig) GetDSN() string {
 }
 
 func (c *DatabaseConfig) Connect() (*pgxpool.Pool, error) {
-	config, err := pgxpool.ParseConfig(c.GetDSN())
+	dsn := c.GetDSN()
+	log.Printf("INFO: Parsing database configuration")
+	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
+		log.Printf("ERROR: Unable to parse database config: %v", err)
 		return nil, fmt.Errorf("unable to parse database config: %v", err)
 	}
 
@@ -76,20 +79,24 @@ func (c *DatabaseConfig) Connect() (*pgxpool.Pool, error) {
 	config.MinConns = c.MinConns
 	config.MaxConnLifetime = c.MaxConnLifetime
 	config.MaxConnIdleTime = c.MaxConnIdleTime
-
+	
+	log.Printf("INFO: Creating database connection pool (min: %d, max: %d)", c.MinConns, c.MaxConns)
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
+		log.Printf("ERROR: Unable to create connection pool: %v", err)
 		return nil, fmt.Errorf("unable to create connection pool: %v", err)
 	}
 
+	log.Printf("INFO: Testing database connection with ping")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := pool.Ping(ctx); err != nil {
+		log.Printf("ERROR: Unable to ping database: %v", err)
 		return nil, fmt.Errorf("unable to ping database: %v", err)
 	}
 
-	log.Printf("Successfully connected to database with pool size: %d", c.MaxConns)
+	log.Printf("INFO: Successfully connected to database with pool size: %d", c.MaxConns)
 	return pool, nil
 }
 
