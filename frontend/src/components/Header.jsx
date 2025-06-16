@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { userApi } from '../utils/request';
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 function Header() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userName, setUserName] = useState('');
+  const navigate = useNavigate();
+  const { isAuthenticated, userName, logout } = useAuth();
 
-  useEffect(() => {
-    setIsAuthenticated(userApi.isAuthenticated());
-    setUserName(userApi.getCurrentUser().name);
-  }, []);
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <header className="bg-green-600 text-white shadow-md">
@@ -47,6 +47,7 @@ function Header() {
                   {userName}
                 </Link>
                 <button
+                  onClick={handleLogout}
                   className="px-4 py-2 bg-green-700 rounded hover:bg-green-800 transition-colors"
                 >
                   Logout

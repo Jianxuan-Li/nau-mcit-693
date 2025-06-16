@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { userApi } from '../utils/request';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, login } = useAuth();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
   useEffect(() => {
-    if (userApi.isAuthenticated()) {
-      navigate('/dashboard');
+    if (isAuthenticated) {
+      const from = location.state?.from || '/dashboard';
+      navigate(from);
     } else {
       setIsCheckingAuth(false);
     }
-  }, [navigate]);
+  }, [navigate, location, isAuthenticated]);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -69,14 +72,15 @@ function LoginPage() {
       setErrors(prev => ({ ...prev, general: '' }));
 
       try {
-        await userApi.login(formData.email, formData.password);
+        await login(formData.email, formData.password);
         
         // Reset login attempts on successful login
         setLoginAttempts(0);
         setShowCaptcha(false);
 
-        // Redirect to dashboard or home page
-        navigate('/dashboard');
+        // Redirect to the original page or dashboard
+        const from = location.state?.from || '/dashboard';
+        navigate(from);
       } catch (error) {
         setErrors(prev => ({
           ...prev,

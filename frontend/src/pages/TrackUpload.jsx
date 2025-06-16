@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { userApi } from '../utils/request';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 function TrackUpload() {
+  const navigate = useNavigate();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [files, setFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -17,6 +21,14 @@ function TrackUpload() {
   const [previewData, setPreviewData] = useState(null);
   const mapContainer = useRef(null);
   const map = useRef(null);
+
+  useEffect(() => {
+    if (!userApi.isAuthenticated()) {
+      navigate('/login', { state: { from: '/upload' } });
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (currentStep === 3 && previewData && !map.current) {
@@ -286,6 +298,14 @@ function TrackUpload() {
       </div>
     </div>
   );
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
