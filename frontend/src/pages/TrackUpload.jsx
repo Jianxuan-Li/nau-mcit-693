@@ -239,12 +239,13 @@ function TrackUpload() {
   };
 
   const renderUploadArea = () => (
-    <div className="mb-6">
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-        <div className="space-y-3">
+    <div>
+      <h3 className="text-lg font-semibold text-gray-900 mb-3">Upload GPX Files</h3>
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
+        <div className="space-y-2">
           <div className="text-gray-600">
-            <p className="font-medium">Drop GPX files here</p>
-            <p className="text-sm">or</p>
+            <p className="text-sm font-medium">Drop GPX files here</p>
+            <p className="text-xs">or</p>
           </div>
           <input
             type="file"
@@ -256,35 +257,48 @@ function TrackUpload() {
           />
           <label
             htmlFor="fileInput"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors cursor-pointer inline-block text-sm"
+            className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors cursor-pointer inline-block text-xs"
           >
             Browse Files
           </label>
           <p className="text-xs text-gray-500">
-            GPX files only • Max 10MB each
+            GPX only • Max 10MB each
           </p>
         </div>
       </div>
       {isProcessing && (
-        <div className="mt-4 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="text-sm text-gray-600 mt-2">Processing files...</p>
+        <div className="mt-3 text-center">
+          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-xs text-gray-600 mt-1">Processing...</p>
         </div>
       )}
     </div>
   );
 
   const renderFileList = () => (
-    <div className="mb-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Uploaded Tracks</h3>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-900">Tracks ({gpxFiles.length})</h3>
+        {gpxFiles.length > 0 && (
+          <button
+            onClick={() => {
+              setGpxFiles([]);
+              setSelectedTrackId(null);
+            }}
+            className="text-xs text-red-500 hover:text-red-700"
+          >
+            Clear All
+          </button>
+        )}
+      </div>
       {gpxFiles.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-4">No tracks uploaded yet</p>
+        <p className="text-xs text-gray-500 text-center py-8">No tracks uploaded yet</p>
       ) : (
         <div className="space-y-2">
           {gpxFiles.map((track) => (
             <div
               key={track.id}
-              className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+              className={`p-2 border rounded cursor-pointer transition-colors ${
                 selectedTrackId === track.id 
                   ? 'border-blue-500 bg-blue-50' 
                   : 'border-gray-200 hover:border-gray-300'
@@ -293,14 +307,13 @@ function TrackUpload() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-xs font-medium text-gray-900 truncate">
                     {track.info.name}
                   </p>
-                  <p className="text-xs text-gray-500">{track.filename}</p>
-                  <div className="flex gap-4 mt-1">
+                  <p className="text-xs text-gray-500 truncate">{track.filename}</p>
+                  <div className="flex gap-2 mt-1">
                     <span className="text-xs text-gray-500">{track.stats.distance}</span>
                     <span className="text-xs text-gray-500">{track.stats.elevation}</span>
-                    <span className="text-xs text-gray-500">{track.stats.points} points</span>
                   </div>
                 </div>
                 <button
@@ -308,9 +321,12 @@ function TrackUpload() {
                     e.stopPropagation();
                     removeTrack(track.id);
                   }}
-                  className="ml-2 text-red-500 hover:text-red-700 text-sm"
+                  className="ml-2 text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors flex-shrink-0"
+                  title="Delete track"
                 >
-                  ×
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -416,65 +432,81 @@ function TrackUpload() {
       
       {/* Main content area */}
       <div className="flex-1 flex">
-        {/* Left side - Map */}
-        <div className="flex-1 bg-gray-100">
+        {/* Left side - Map (50%) */}
+        <div className="w-1/2 bg-gray-100">
           <div ref={mapContainer} className="h-full w-full" />
         </div>
         
-        {/* Right side - Upload area and forms */}
-        <div 
-          className={`w-96 bg-white border-l border-gray-200 flex flex-col relative h-full ${
-            isDragOver ? 'bg-blue-50' : ''
-          }`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleFileDrop}
-        >
-          {/* Drag overlay */}
-          {isDragOver && (
-            <div className="absolute inset-0 bg-blue-100 bg-opacity-90 border-2 border-dashed border-blue-400 flex items-center justify-center z-10">
-              <div className="text-center">
-                <div className="text-blue-600 mb-2">
-                  <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
+        {/* Right side - GPX Files and Form (50%) */}
+        <div className="w-1/2 flex">
+          {/* GPX Files List (25% of total page) */}
+          <div 
+            className={`w-1/2 bg-white border-l border-gray-200 flex flex-col relative ${
+              isDragOver ? 'bg-blue-50' : ''
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleFileDrop}
+          >
+            {/* Drag overlay */}
+            {isDragOver && (
+              <div className="absolute inset-0 bg-blue-100 bg-opacity-90 border-2 border-dashed border-blue-400 flex items-center justify-center z-10">
+                <div className="text-center">
+                  <div className="text-blue-600 mb-2">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  <p className="text-lg font-medium text-blue-600">Drop GPX files here</p>
+                  <p className="text-sm text-blue-500">Release to upload</p>
                 </div>
-                <p className="text-lg font-medium text-blue-600">Drop GPX files here</p>
-                <p className="text-sm text-blue-500">Release to upload</p>
+              </div>
+            )}
+            
+            {/* Upload area - fixed at top */}
+            <div className="p-3 border-b border-gray-200 bg-white">
+              {renderUploadArea()}
+            </div>
+            
+            {/* File list - scrollable */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-3">
+                {renderFileList()}
               </div>
             </div>
-          )}
-          
-          {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto pb-20">
-            <div className="p-6">
-              {renderUploadArea()}
-              {renderFileList()}
-              {renderTrackForm()}
-            </div>
           </div>
-          
-          {/* Bottom buttons - absolutely positioned at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
-            <div className="flex gap-3">
-              <button
-                onClick={() => navigate('/')}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={gpxFiles.length === 0}
-                className={`flex-1 px-4 py-2 rounded-md text-white transition-colors text-sm ${
-                  gpxFiles.length === 0
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-500'
-                }`}
-              >
-                Submit All ({gpxFiles.length})
-              </button>
+
+          {/* Form area (25% of total page) */}
+          <div className="w-1/2 bg-white border-l border-gray-200 flex flex-col">
+            {/* Form content */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-4">
+                {renderTrackForm()}
+              </div>
+            </div>
+            
+            {/* Bottom buttons - fixed at bottom */}
+            <div className="border-t border-gray-200 p-4 bg-white">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={gpxFiles.length === 0}
+                  className={`flex-1 px-4 py-2 rounded-md text-white transition-colors text-sm ${
+                    gpxFiles.length === 0
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-500'
+                  }`}
+                >
+                  Submit All ({gpxFiles.length})
+                </button>
+              </div>
             </div>
           </div>
         </div>
