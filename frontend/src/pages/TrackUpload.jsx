@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -27,7 +27,6 @@ function TrackUpload() {
   }, [navigate]);
 
   useEffect(() => {
-    // 延迟初始化地图，确保容器已经渲染
     const initMap = () => {
       if (!map.current && mapContainer.current && !isCheckingAuth) {
         map.current = new mapboxgl.Map({
@@ -38,13 +37,11 @@ function TrackUpload() {
         });
 
         map.current.on('load', () => {
-          // 地图加载完成后调整大小
           map.current.resize();
         });
       }
     };
 
-    // 如果认证检查完成，延迟一帧初始化地图
     if (!isCheckingAuth) {
       requestAnimationFrame(initMap);
     }
@@ -57,13 +54,32 @@ function TrackUpload() {
     };
   }, [isCheckingAuth]);
 
+  const mapData = useMemo(() => ({
+    tracks: gpxFiles.map(track => ({
+      id: track.id,
+      coordinates: track.coordinates
+    })),
+    selectedTrackId
+  }), [
+    gpxFiles.length,
+    gpxFiles.map(track => track.id).join(','),
+    gpxFiles.map(track => track.coordinates.length).join(','),
+    selectedTrackId
+  ]);
+
   useEffect(() => {
-    if (map.current && gpxFiles.length > 0) {
+    if (map.current && mapData.tracks.length > 0) {
       updateMapRoutes();
     }
-  }, [gpxFiles, selectedTrackId]);
+  }, [mapData]);
 
-  // 处理窗口大小变化
+  // Focus on selected track when it changes
+  useEffect(() => {
+    if (selectedTrackId) {
+      focusOnTrack(selectedTrackId);
+    }
+  }, [selectedTrackId]);
+
   useEffect(() => {
     const handleResize = () => {
       if (map.current) {
@@ -204,22 +220,39 @@ function TrackUpload() {
             'line-cap': 'round'
           },
           paint: {
-            'line-color': isSelected ? '#3b82f6' : '#94a3b8',
-            'line-width': isSelected ? 4 : 2,
-            'line-opacity': isSelected ? 1 : 0.7
+            'line-color': isSelected ? '#3b82f6' : '#6b7280',
+            'line-width': isSelected ? 4 : 3,
+            'line-opacity': isSelected ? 1 : 0.85
           }
         });
       }
     });
 
-    // Fit map to show all routes
-    if (gpxFiles.length > 0) {
+    // If no track is selected, fit map to show all routes
+    if (gpxFiles.length > 0 && !selectedTrackId) {
       const bounds = new mapboxgl.LngLatBounds();
       gpxFiles.forEach(track => {
         track.coordinates.forEach(coord => bounds.extend(coord));
       });
       map.current.fitBounds(bounds, { padding: 50 });
     }
+  };
+
+  const focusOnTrack = (trackId) => {
+    if (!map.current || !trackId) return;
+    
+    const track = gpxFiles.find(t => t.id === trackId);
+    if (!track || track.coordinates.length === 0) return;
+
+    // Create bounds for the selected track
+    const bounds = new mapboxgl.LngLatBounds();
+    track.coordinates.forEach(coord => bounds.extend(coord));
+    
+    // Animate to the track with smooth transition
+    map.current.fitBounds(bounds, {
+      padding: 80,
+      duration: 3000
+    });
   };
 
   const handleTrackInfoChange = (trackId, field, value) => {
