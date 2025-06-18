@@ -89,6 +89,60 @@ export const userApi = {
   isAuthenticated: () => {
     return !!localStorage.getItem('token');
   },
+
+  // Validate current token with backend
+  validateToken: async () => {
+    try {
+      const data = await request('/auth/me');
+      // Update user info in localStorage if token is valid
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('userName', data.user.name);
+      return { valid: true, user: data.user };
+    } catch (error) {
+      // Token is invalid or expired, clear localStorage
+      userApi.logout();
+      return { valid: false, error: error.message };
+    }
+  },
+};
+
+export const routesApi = {
+  create: async (file, routeData) => {
+    const formData = new FormData();
+    formData.append('gpx_file', file);
+    formData.append('Name', routeData.name);
+    formData.append('Description', routeData.description);
+    formData.append('Difficulty', routeData.difficulty);
+    formData.append('TotalDistance', routeData.totalDistance);
+    formData.append('EstimatedDuration', routeData.estimatedDuration || 60);
+    
+    return request('/routes/', {
+      method: 'POST',
+      body: formData,
+      isFormData: true,
+    });
+  },
+  
+  getAll: async () => {
+    return request('/routes/');
+  },
+  
+  getById: async (id) => {
+    return request(`/routes/${id}`);
+  },
+  
+  update: async (id, routeData) => {
+    return request(`/routes/${id}`, {
+      method: 'PUT',
+      body: routeData,
+    });
+  },
+  
+  delete: async (id) => {
+    return request(`/routes/${id}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 export const gpxApi = {

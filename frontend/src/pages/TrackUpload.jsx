@@ -3,28 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import GPXParser from 'gpxparser';
-import { userApi, gpxApi, trailsApi } from '../utils/request';
+import { routesApi } from '../utils/request';
+import useAuth from '../hooks/useAuth';
+import Modal from '../components/Modal';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 function TrackUpload() {
   const navigate = useNavigate();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const { isLoading: isCheckingAuth, user } = useAuth();
   const [gpxFiles, setGpxFiles] = useState([]);
   const [selectedTrackId, setSelectedTrackId] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
+  const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '' });
   const mapContainer = useRef(null);
   const map = useRef(null);
-
-  useEffect(() => {
-    if (!userApi.isAuthenticated()) {
-      navigate('/login', { state: { from: '/upload' } });
-    } else {
-      setIsCheckingAuth(false);
-    }
-  }, [navigate]);
 
   useEffect(() => {
     const initMap = () => {
@@ -121,7 +116,12 @@ function TrackUpload() {
     );
     
     if (droppedFiles.length === 0) {
-      alert('Please drop only GPX files');
+      setModal({
+        isOpen: true,
+        type: 'warning',
+        title: 'Invalid File Type',
+        message: 'Please drop only GPX files.'
+      });
       return;
     }
     
@@ -143,7 +143,12 @@ function TrackUpload() {
       try {
         // Check file size (10MB limit to match backend)
         if (file.size > 10 * 1024 * 1024) {
-          alert(`File ${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB.`);
+          setModal({
+            isOpen: true,
+            type: 'error',
+            title: 'File Too Large',
+            message: `File ${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB.`
+          });
           continue;
         }
 
@@ -164,8 +169,8 @@ function TrackUpload() {
             description: ''
           },
           stats: {
-            distance: gpx.tracks[0]?.distance?.total ? (gpx.tracks[0].distance.total / 1000).toFixed(2) + ' km' : 'N/A',
-            elevation: gpx.tracks[0]?.elevation?.max ? '+' + Math.round(gpx.tracks[0].elevation.max) + 'm' : 'N/A',
+            distance: gpx.tracks[0]?.distance?.total ? (gpx.tracks[0].distance.total / 1000).toFixed(2) : 0,
+            elevation: gpx.tracks[0]?.elevation?.max ? Math.round(gpx.tracks[0].elevation.max) : 0,
             points: gpx.tracks[0]?.points?.length || 0
           }
         };
@@ -351,8 +356,8 @@ function TrackUpload() {
                   </p>
                   <p className="text-xs text-gray-500 truncate">{track.filename}</p>
                   <div className="flex gap-2 mt-1">
-                    <span className="text-xs text-gray-500">{track.stats.distance}</span>
-                    <span className="text-xs text-gray-500">{track.stats.elevation}</span>
+                    <span className="text-xs text-gray-500">{track.stats.distance}km</span>
+                    <span className="text-xs text-gray-500">+{track.stats.elevation}m</span>
                   </div>
                 </div>
                 <button
@@ -408,8 +413,8 @@ function TrackUpload() {
             >
               <option value="easy">Easy</option>
               <option value="moderate">Moderate</option>
-              <option value="challenging">Challenging</option>
-              <option value="difficult">Difficult</option>
+              <option value="hard">Hard</option>
+              <option value="expert">Expert</option>
             </select>
           </div>
           <div>
@@ -439,7 +444,12 @@ function TrackUpload() {
 
   const handleSubmit = async () => {
     if (gpxFiles.length === 0) {
-      alert('Please upload at least one GPX file');
+      setModal({
+        isOpen: true,
+        type: 'warning',
+        title: 'No Files Selected',
+        message: 'Please upload at least one GPX file before submitting.'
+      });
       return;
     }
 
@@ -449,22 +459,17 @@ function TrackUpload() {
     try {
       for (const track of gpxFiles) {
         try {
-          // Upload GPX file first
-          const gpxUploadResult = await gpxApi.upload(track.file, track.info.description);
-          
-          // Create trail information
-          const trailData = {
+          // Create route data matching the new API structure
+          const routeData = {
             name: track.info.name,
+            description: track.info.description + (track.info.scenery ? '\n\nScenery: ' + track.info.scenery : ''),
             difficulty: track.info.difficulty,
-            scenery: track.info.scenery,
-            description: track.info.description,
-            gpx_file_id: gpxUploadResult.id || gpxUploadResult.file_id,
-            distance: parseFloat(track.stats.distance.replace(' km', '')) || 0,
-            elevation: parseInt(track.stats.elevation.replace('+', '').replace('m', '')) || 0,
+            totalDistance: track.stats.distance,
+            estimatedDuration: Math.max(60, Math.round(track.stats.distance * 12)) // Estimate 12 minutes per km, minimum 60 minutes
           };
 
-          const trailResult = await trailsApi.create(trailData);
-          results.push({ success: true, name: track.info.name, trail: trailResult });
+          const routeResult = await routesApi.create(track.file, routeData);
+          results.push({ success: true, name: track.info.name, route: routeResult });
         } catch (error) {
           console.error(`Error uploading track ${track.info.name}:`, error);
           results.push({ success: false, name: track.info.name, error: error.message });
@@ -476,19 +481,39 @@ function TrackUpload() {
       const failed = results.filter(r => !r.success).length;
       
       if (failed === 0) {
-        alert(`All ${successful} tracks uploaded successfully!`);
+        setModal({
+          isOpen: true,
+          type: 'success',
+          title: 'Upload Successful',
+          message: `All ${successful} tracks uploaded successfully!`
+        });
         // Clear the form
         setGpxFiles([]);
         setSelectedTrackId(null);
       } else if (successful === 0) {
-        alert(`Failed to upload all tracks. Please check the console for details.`);
+        setModal({
+          isOpen: true,
+          type: 'error',
+          title: 'Upload Failed',
+          message: 'Failed to upload all tracks. Please check the console for details.'
+        });
       } else {
-        alert(`${successful} tracks uploaded successfully, ${failed} failed. Check console for details.`);
+        setModal({
+          isOpen: true,
+          type: 'warning',
+          title: 'Partial Upload Success',
+          message: `${successful} tracks uploaded successfully, ${failed} failed. Check console for details.`
+        });
         console.log('Upload results:', results);
       }
     } catch (error) {
       console.error('Error during submission:', error);
-      alert('Unexpected error during submission. Please try again.');
+      setModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Upload Error',
+        message: 'Unexpected error during submission. Please try again.'
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -598,6 +623,15 @@ function TrackUpload() {
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={modal.isOpen}
+        onClose={() => setModal({ ...modal, isOpen: false })}
+        type={modal.type}
+        title={modal.title}
+      >
+        {modal.message}
+      </Modal>
     </div>
   );
 }
