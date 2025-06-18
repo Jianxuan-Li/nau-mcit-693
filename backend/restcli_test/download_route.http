@@ -1,0 +1,38 @@
+### Login to get JWT token
+# @name login
+POST http://localhost:8000/api/v1/users/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "password123"
+}
+
+### Get JWT Token
+@jwt_token = {{login.response.body.token}}
+
+### Get All Routes with Pagination
+# @name get_all_routes
+GET http://localhost:8000/api/v1/public/routes?page=1&limit=10
+Content-Type: application/json
+
+### Get Route ID
+@route_id = {{get_all_routes.response.body.routes[0].id}}
+
+### Generate Download URL for Route (Authenticated)
+# Use the JWT token from the login response above
+# Copy the "token" field from the login response and replace {{jwt_token}}
+# Download URL will expire in 10 minutes (fixed)
+
+GET http://localhost:8000/api/v1/download/routes/{{route_id}}
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Generate Download URL for Non-existent Route
+GET http://localhost:8000/api/v1/download/routes/non-existent-id
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Generate Download URL without Authentication (should fail)
+GET http://localhost:8000/api/v1/download/routes/{{route_id}}
+Content-Type: application/json

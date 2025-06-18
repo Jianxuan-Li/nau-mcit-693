@@ -1,0 +1,32 @@
+### Get All Routes (Public Endpoint)
+GET http://localhost:8000/api/v1/public/routes
+Content-Type: application/json
+
+###
+
+### Get All Routes with Pagination
+GET http://localhost:8000/api/v1/public/routes?page=1&limit=10
+Content-Type: application/json
+
+###
+
+### Get All Routes with Difficulty Filter
+GET http://localhost:8000/api/v1/public/routes?difficulty=moderate
+Content-Type: application/json
+
+###
+
+### Get All Routes with Search Filter
+GET http://localhost:8000/api/v1/public/routes?search=mountain
+Content-Type: application/json
+
+###
+
+### Get All Routes with Multiple Filters
+GET http://localhost:8000/api/v1/public/routes?page=1&limit=5&difficulty=hard&search=trail
+Content-Type: application/json
+
+###
+
+# Note: This public endpoint now returns only public user information (id and name)
+# Sensitive information like email, created_at, is_active, etc. are hidden for privacy 

@@ -20,6 +20,7 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	userHandler := handlers.NewUserHandler(db, cfg.JWT.SecretKey)
 	healthHandler := handlers.NewHealthHandler(db)
 	routeHandler := handlers.NewRouteHandler(db)
+	publicRouteHandler := handlers.NewPublicRouteHandler(db)
 
 	// API group
 	api := r.Group("/api")
@@ -44,7 +45,7 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 				auth.GET("/me", userHandler.GetCurrentUser)
 			}
 
-			// Route routes (protected) - unified GPX upload + trail management
+			// Private route routes (protected) - user's own routes
 			routes := v1.Group("/routes")
 			routes.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
 			{
@@ -53,6 +54,19 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 				routes.GET("/:id", routeHandler.GetRoute)       // Get route + download URL
 				routes.PUT("/:id", routeHandler.UpdateRoute)    // Update route metadata
 				routes.DELETE("/:id", routeHandler.DeleteRoute) // Delete route + GPX file
+			}
+
+			// Public routes for browsing all routes
+			public := v1.Group("/public")
+			{
+				public.GET("/routes", publicRouteHandler.GetAllRoutes) // Get all routes from all users
+			}
+
+			// Download routes (authenticated but can download any route)
+			download := v1.Group("/download")
+			download.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
+			{
+				download.GET("/routes/:id", publicRouteHandler.GenerateDownloadURL) // Generate download URL for any route
 			}
 		}
 	}

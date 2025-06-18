@@ -53,3 +53,18 @@ func (u *User) ToResponse() UserResponse {
 		LastLogin:     u.LastLogin,
 	}
 }
+
+// UserPublicResponse represents the public response payload for user information
+// This is used for public endpoints where sensitive information should be hidden
+type UserPublicResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+// ToPublicResponse converts a User to UserPublicResponse (only public information)
+func (u *User) ToPublicResponse() UserPublicResponse {
+	return UserPublicResponse{
+		ID:   u.ID,
+		Name: u.Name,
+	}
+}

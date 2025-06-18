@@ -89,6 +89,12 @@ type RouteDetailResponse struct {
 	ExpiresAt   string `json:"expires_at"`
 }
 
+// RouteWithUserResponse represents a route response that includes user information
+type RouteWithUserResponse struct {
+	RouteResponse
+	User UserPublicResponse `json:"user"`
+}
+
 // ToResponse converts a Route to RouteResponse
 func (r *Route) ToResponse() RouteResponse {
 	return RouteResponse{
@@ -114,6 +120,14 @@ func (r *Route) ToDetailResponse(downloadURL, expiresAt string) RouteDetailRespo
 		RouteResponse: r.ToResponse(),
 		DownloadURL:   downloadURL,
 		ExpiresAt:     expiresAt,
+	}
+}
+
+// ToResponseWithUser converts a Route to RouteWithUserResponse with user information
+func (r *Route) ToResponseWithUser(user UserPublicResponse) RouteWithUserResponse {
+	return RouteWithUserResponse{
+		RouteResponse: r.ToResponse(),
+		User:          user,
 	}
 }
 

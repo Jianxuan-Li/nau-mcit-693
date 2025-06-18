@@ -221,3 +221,97 @@ All error responses follow this format:
   }
 }
 ```
+
+## Public Route Browsing
+
+### Public Routes Endpoint
+
+#### GET /api/v1/public/routes
+Get all routes from all active users. This is a public endpoint that doesn't require authentication.
+
+**Query Parameters:**
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Number of routes per page (default: 20, max: 100)
+- `difficulty` (optional): Filter by difficulty level (easy, moderate, hard, expert)
+- `search` (optional): Search in route name and description
+
+**Response:**
+```json
+{
+  "routes": [
+    {
+      "id": "uuid",
+      "user_id": "uuid",
+      "name": "Route Name",
+      "difficulty": "moderate",
+      "scenery_description": "Beautiful mountain trail",
+      "additional_notes": "Best in spring",
+      "total_distance": 15.5,
+      "max_elevation_gain": 800.0,
+      "estimated_duration": 180,
+      "filename": "route.gpx",
+      "file_size": 1024,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "user": {
+        "id": "uuid",
+        "name": "User Name"
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total_count": 100,
+    "total_pages": 5
+  }
+}
+```
+
+**Example Requests:**
+- `GET /api/v1/public/routes` - Get first 20 routes
+- `GET /api/v1/public/routes?page=2&limit=10` - Get 10 routes from page 2
+- `GET /api/v1/public/routes?difficulty=hard` - Get only hard difficulty routes
+- `GET /api/v1/public/routes?search=mountain` - Search for routes with "mountain" in name or description
+- `GET /api/v1/public/routes?page=1&limit=5&difficulty=moderate&search=trail` - Combined filters with pagination
+
+## Route Download Management
+
+### Generate Download URL
+
+#### GET /api/v1/routes/:id/download
+Generate a presigned URL for downloading a GPX file. Users must be authenticated but can download any user's GPX file.
+
+**Authentication:** Required (JWT token)
+
+**Path Parameters:**
+- `id` (required): Route ID
+
+**Query Parameters:**
+- `expiration` (optional): URL expiration time in minutes (default: 15, max: 60)
+
+**Response:**
+```json
+{
+  "download_url": "https://presigned-url-to-gpx-file",
+  "expires_at": "2024-01-01T00:15:00Z",
+  "route_info": {
+    "id": "uuid",
+    "name": "Route Name",
+    "filename": "route.gpx",
+    "file_size": 1024,
+    "creator_name": "Creator Name"
+  }
+}
+```
+
+**Example Requests:**
+- `GET /api/v1/routes/123/download` - Generate download URL with default 15-minute expiration
+- `GET /api/v1/routes/123/download?expiration=30` - Generate download URL with 30-minute expiration
+- `GET /api/v1/routes/123/download?expiration=5` - Generate download URL with 5-minute expiration
+
+**Error Responses:**
+- `401 Unauthorized` - User not authenticated
+- `400 Bad Request` - Route ID is required
+- `404 Not Found` - Route not found
+- `500 Internal Server Error` - Failed to generate download URL
