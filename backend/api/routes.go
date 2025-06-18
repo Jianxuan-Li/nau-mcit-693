@@ -19,8 +19,7 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db, cfg.JWT.SecretKey)
 	healthHandler := handlers.NewHealthHandler(db)
-	gpxHandler := handlers.NewGPXHandler(db)
-	trailHandler := handlers.NewTrailHandler(db)
+	routeHandler := handlers.NewRouteHandler(db)
 
 	// API group
 	api := r.Group("/api")
@@ -45,25 +44,15 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 				auth.GET("/me", userHandler.GetCurrentUser)
 			}
 
-			// GPX routes (protected)
-			gpx := v1.Group("/gpx")
-			gpx.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
+			// Route routes (protected) - unified GPX upload + trail management
+			routes := v1.Group("/routes")
+			routes.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
 			{
-				gpx.POST("/upload", gpxHandler.UploadGPX)
-				gpx.GET("/", gpxHandler.GetUserGPXFiles)
-				gpx.GET("/:id", gpxHandler.GetGPXFile)
-				gpx.DELETE("/:id", gpxHandler.DeleteGPXFile)
-			}
-
-			// Trail routes (protected)
-			trails := v1.Group("/trails")
-			trails.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
-			{
-				trails.POST("/", trailHandler.CreateTrail)
-				trails.GET("/", trailHandler.GetUserTrails)
-				trails.GET("/:id", trailHandler.GetTrail)
-				trails.PUT("/:id", trailHandler.UpdateTrail)
-				trails.DELETE("/:id", trailHandler.DeleteTrail)
+				routes.POST("/", routeHandler.CreateRoute)      // Upload GPX + create route
+				routes.GET("/", routeHandler.GetUserRoutes)     // Get all user routes
+				routes.GET("/:id", routeHandler.GetRoute)       // Get route + download URL
+				routes.PUT("/:id", routeHandler.UpdateRoute)    // Update route metadata
+				routes.DELETE("/:id", routeHandler.DeleteRoute) // Delete route + GPX file
 			}
 		}
 	}

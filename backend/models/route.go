@@ -1,0 +1,138 @@
+package models
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// DifficultyLevel represents the difficulty level of a route
+type DifficultyLevel string
+
+const (
+	DifficultyEasy     DifficultyLevel = "easy"
+	DifficultyModerate DifficultyLevel = "moderate"
+	DifficultyHard     DifficultyLevel = "hard"
+	DifficultyExpert   DifficultyLevel = "expert"
+)
+
+// Route represents a unified model containing both route metadata and GPX file information
+type Route struct {
+	ID                 uuid.UUID       `json:"id" db:"id"`
+	UserID             uuid.UUID       `json:"user_id" db:"user_id"`
+	
+	// Route metadata
+	Name               string          `json:"name" db:"name"`
+	Difficulty         DifficultyLevel `json:"difficulty" db:"difficulty"`
+	SceneryDescription string          `json:"scenery_description,omitempty" db:"scenery_description"`
+	AdditionalNotes    string          `json:"additional_notes,omitempty" db:"additional_notes"`
+	TotalDistance      float64         `json:"total_distance" db:"total_distance"`           // in kilometers
+	MaxElevationGain   float64         `json:"max_elevation_gain" db:"max_elevation_gain"`   // in meters
+	EstimatedDuration  int             `json:"estimated_duration" db:"estimated_duration"`   // in minutes
+	
+	// GPX file information
+	Filename           string          `json:"filename" db:"filename"`
+	R2ObjectKey        string          `json:"r2_object_key" db:"r2_object_key"`
+	FileSize           int64           `json:"file_size" db:"file_size"`
+	
+	// Timestamps
+	CreatedAt          time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at" db:"updated_at"`
+}
+
+// RouteCreateRequest represents the request payload for creating a new route
+type RouteCreateRequest struct {
+	// Route metadata
+	Name               string          `json:"name" binding:"required,max=255"`
+	Difficulty         DifficultyLevel `json:"difficulty" binding:"required,oneof=easy moderate hard expert"`
+	SceneryDescription string          `json:"scenery_description,omitempty" binding:"max=1000"`
+	AdditionalNotes    string          `json:"additional_notes,omitempty" binding:"max=2000"`
+	TotalDistance      float64         `json:"total_distance" binding:"required,min=0"`
+	MaxElevationGain   float64         `json:"max_elevation_gain" binding:"min=0"`
+	EstimatedDuration  int             `json:"estimated_duration" binding:"required,min=0"`
+	
+	// GPX file will be provided via multipart form upload
+}
+
+// RouteUpdateRequest represents the request payload for updating a route
+type RouteUpdateRequest struct {
+	Name               *string          `json:"name,omitempty" binding:"omitempty,max=255"`
+	Difficulty         *DifficultyLevel `json:"difficulty,omitempty" binding:"omitempty,oneof=easy moderate hard expert"`
+	SceneryDescription *string          `json:"scenery_description,omitempty" binding:"omitempty,max=1000"`
+	AdditionalNotes    *string          `json:"additional_notes,omitempty" binding:"omitempty,max=2000"`
+	TotalDistance      *float64         `json:"total_distance,omitempty" binding:"omitempty,min=0"`
+	MaxElevationGain   *float64         `json:"max_elevation_gain,omitempty" binding:"omitempty,min=0"`
+	EstimatedDuration  *int             `json:"estimated_duration,omitempty" binding:"omitempty,min=0"`
+}
+
+// RouteResponse represents the response payload for route operations
+type RouteResponse struct {
+	ID                 uuid.UUID       `json:"id"`
+	UserID             uuid.UUID       `json:"user_id"`
+	Name               string          `json:"name"`
+	Difficulty         DifficultyLevel `json:"difficulty"`
+	SceneryDescription string          `json:"scenery_description,omitempty"`
+	AdditionalNotes    string          `json:"additional_notes,omitempty"`
+	TotalDistance      float64         `json:"total_distance"`
+	MaxElevationGain   float64         `json:"max_elevation_gain"`
+	EstimatedDuration  int             `json:"estimated_duration"`
+	Filename           string          `json:"filename"`
+	FileSize           int64           `json:"file_size"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+}
+
+// RouteDetailResponse represents a detailed route response with download URL
+type RouteDetailResponse struct {
+	RouteResponse
+	DownloadURL string `json:"download_url"`
+	ExpiresAt   string `json:"expires_at"`
+}
+
+// ToResponse converts a Route to RouteResponse
+func (r *Route) ToResponse() RouteResponse {
+	return RouteResponse{
+		ID:                 r.ID,
+		UserID:             r.UserID,
+		Name:               r.Name,
+		Difficulty:         r.Difficulty,
+		SceneryDescription: r.SceneryDescription,
+		AdditionalNotes:    r.AdditionalNotes,
+		TotalDistance:      r.TotalDistance,
+		MaxElevationGain:   r.MaxElevationGain,
+		EstimatedDuration:  r.EstimatedDuration,
+		Filename:           r.Filename,
+		FileSize:           r.FileSize,
+		CreatedAt:          r.CreatedAt,
+		UpdatedAt:          r.UpdatedAt,
+	}
+}
+
+// ToDetailResponse converts a Route to RouteDetailResponse with download URL
+func (r *Route) ToDetailResponse(downloadURL, expiresAt string) RouteDetailResponse {
+	return RouteDetailResponse{
+		RouteResponse: r.ToResponse(),
+		DownloadURL:   downloadURL,
+		ExpiresAt:     expiresAt,
+	}
+}
+
+// IsValidDifficulty checks if the difficulty level is valid
+func IsValidDifficulty(difficulty string) bool {
+	switch DifficultyLevel(difficulty) {
+	case DifficultyEasy, DifficultyModerate, DifficultyHard, DifficultyExpert:
+		return true
+	default:
+		return false
+	}
+}
+
+// GetAllDifficulties returns all valid difficulty levels
+func GetAllDifficulties() []DifficultyLevel {
+	return []DifficultyLevel{
+		DifficultyEasy,
+		DifficultyModerate,
+		DifficultyHard,
+		DifficultyExpert,
+	}
+}

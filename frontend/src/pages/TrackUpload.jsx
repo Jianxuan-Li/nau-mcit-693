@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import GPXParser from 'gpxparser';
-import { userApi } from '../utils/request';
+import { userApi, gpxApi, trailsApi } from '../utils/request';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -141,6 +141,12 @@ function TrackUpload() {
 
     for (const file of files) {
       try {
+        // Check file size (10MB limit to match backend)
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`File ${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB.`);
+          continue;
+        }
+
         const text = await file.text();
         const gpx = new GPXParser();
         gpx.parse(text);
@@ -437,13 +443,54 @@ function TrackUpload() {
       return;
     }
 
+    setIsProcessing(true);
+    const results = [];
+
     try {
-      // TODO: Implement actual submission logic
-      console.log('Submitting tracks:', gpxFiles);
-      alert('Tracks submitted successfully!');
+      for (const track of gpxFiles) {
+        try {
+          // Upload GPX file first
+          const gpxUploadResult = await gpxApi.upload(track.file, track.info.description);
+          
+          // Create trail information
+          const trailData = {
+            name: track.info.name,
+            difficulty: track.info.difficulty,
+            scenery: track.info.scenery,
+            description: track.info.description,
+            gpx_file_id: gpxUploadResult.id || gpxUploadResult.file_id,
+            distance: parseFloat(track.stats.distance.replace(' km', '')) || 0,
+            elevation: parseInt(track.stats.elevation.replace('+', '').replace('m', '')) || 0,
+          };
+
+          const trailResult = await trailsApi.create(trailData);
+          results.push({ success: true, name: track.info.name, trail: trailResult });
+        } catch (error) {
+          console.error(`Error uploading track ${track.info.name}:`, error);
+          results.push({ success: false, name: track.info.name, error: error.message });
+        }
+      }
+
+      // Show results
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      
+      if (failed === 0) {
+        alert(`All ${successful} tracks uploaded successfully!`);
+        // Clear the form
+        setGpxFiles([]);
+        setSelectedTrackId(null);
+      } else if (successful === 0) {
+        alert(`Failed to upload all tracks. Please check the console for details.`);
+      } else {
+        alert(`${successful} tracks uploaded successfully, ${failed} failed. Check console for details.`);
+        console.log('Upload results:', results);
+      }
     } catch (error) {
-      console.error('Error submitting tracks:', error);
-      alert('Error submitting tracks. Please try again.');
+      console.error('Error during submission:', error);
+      alert('Unexpected error during submission. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -530,14 +577,21 @@ function TrackUpload() {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={gpxFiles.length === 0}
+                  disabled={gpxFiles.length === 0 || isProcessing}
                   className={`flex-1 px-4 py-2 rounded-md text-white transition-colors text-sm ${
-                    gpxFiles.length === 0
+                    gpxFiles.length === 0 || isProcessing
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 hover:bg-blue-500'
                   }`}
                 >
-                  Submit All ({gpxFiles.length})
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                      Uploading...
+                    </div>
+                  ) : (
+                    `Submit All (${gpxFiles.length})`
+                  )}
                 </button>
               </div>
             </div>
