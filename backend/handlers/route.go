@@ -14,13 +14,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gpxbase/backend/models"
+	"gpxbase/backend/services"
 	"gpxbase/backend/storage"
 	"gpxbase/backend/utils"
 )
 
 type RouteHandler struct {
-	db      *pgxpool.Pool
-	storage storage.FileStorage
+	db         *pgxpool.Pool
+	storage    storage.FileStorage
+	geoService *services.GeoService
 }
 
 func NewRouteHandler(db *pgxpool.Pool) *RouteHandler {
@@ -33,9 +35,14 @@ func NewRouteHandler(db *pgxpool.Pool) *RouteHandler {
 
 	log.Printf("INFO: R2 storage initialized successfully for RouteHandler")
 
+	// Initialize GeoService
+	geoService := services.NewGeoService(db)
+	log.Printf("INFO: GeoService initialized successfully for RouteHandler")
+
 	return &RouteHandler{
-		db:      db,
-		storage: r2Storage,
+		db:         db,
+		storage:    r2Storage,
+		geoService: geoService,
 	}
 }
 
@@ -104,6 +111,18 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
+	// Convert GPX to GeoJSON for PostGIS processing
+	log.Printf("INFO: Converting GPX to GeoJSON for route: %s", filename)
+	geoJSONStr, err := utils.ProcessGPXToGeoJSON(content)
+	if err != nil {
+		log.Printf("ERROR: Failed to convert GPX to GeoJSON for user %s, file %s: %v", userID.(string), filename, err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Failed to process GPX file: " + err.Error(),
+		})
+		return
+	}
+	log.Printf("INFO: Successfully converted GPX to GeoJSON for route: %s", filename)
+
 	// Parse route metadata from form
 	var routeReq models.RouteCreateRequest
 	if err := c.ShouldBind(&routeReq); err != nil {
@@ -130,7 +149,7 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
-	// Create route record
+	// Create route record (geographical features will be calculated by PostGIS)
 	route := models.Route{
 		ID:                 routeID,
 		UserID:             uuid.MustParse(userIDStr),
@@ -148,7 +167,7 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		UpdatedAt:          time.Now(),
 	}
 
-	// Insert into database
+	// Insert into database (without geographical features - they'll be calculated after)
 	query := `
 		INSERT INTO routes (
 			id, user_id, name, difficulty, scenery_description, additional_notes,
@@ -180,6 +199,24 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
+	// Step 3: Process geographical features using PostGIS
+	log.Printf("INFO: Processing geographical features with PostGIS for route: %s", routeID.String())
+	geoFeatures, err := h.geoService.ProcessGeoJSONWithPostGIS(ctx, routeID, geoJSONStr)
+	if err != nil {
+		log.Printf("ERROR: Failed to process geographical features for route %s: %v", routeID.String(), err)
+		// Don't fail the entire operation, but log the error
+		// The route is already created, user can still access it without geo features
+		log.Printf("WARN: Route %s created without geographical features due to processing error", routeID.String())
+	} else {
+		log.Printf("INFO: Successfully processed geographical features for route: %s", routeID.String())
+		// Update the route object with calculated features for response
+		route.CenterPoint = geoFeatures.CenterPoint
+		route.ConvexHull = geoFeatures.ConvexHull
+		route.SimplifiedPath = geoFeatures.SimplifiedPath
+		route.RouteLength = geoFeatures.RouteLength
+		route.BoundingBox = geoFeatures.BoundingBox
+	}
+
 	response := route.ToResponse()
 	log.Printf("INFO: Route created successfully for user %s: %s (ID: %s)", userIDStr, route.Name, routeID.String())
 	c.JSON(http.StatusCreated, gin.H{
@@ -204,7 +241,13 @@ func (h *RouteHandler) GetUserRoutes(c *gin.Context) {
 	query := `
 		SELECT id, user_id, name, difficulty, scenery_description, additional_notes,
 		       total_distance, max_elevation_gain, estimated_duration,
-		       filename, file_size, created_at, updated_at
+		       filename, file_size, 
+		       ST_AsText(center_point) as center_point,
+		       ST_AsText(convex_hull) as convex_hull,
+		       ST_AsText(simplified_path) as simplified_path,
+		       route_length_km,
+		       ST_AsText(bounding_box) as bounding_box,
+		       created_at, updated_at
 		FROM routes 
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -229,7 +272,10 @@ func (h *RouteHandler) GetUserRoutes(c *gin.Context) {
 			&route.ID, &route.UserID, &route.Name, &route.Difficulty,
 			&route.SceneryDescription, &route.AdditionalNotes,
 			&route.TotalDistance, &route.MaxElevationGain, &route.EstimatedDuration,
-			&route.Filename, &route.FileSize, &route.CreatedAt, &route.UpdatedAt,
+			&route.Filename, &route.FileSize, 
+			&route.CenterPoint, &route.ConvexHull, &route.SimplifiedPath,
+			&route.RouteLength, &route.BoundingBox,
+			&route.CreatedAt, &route.UpdatedAt,
 		)
 		if err != nil {
 			log.Printf("ERROR: Failed to scan route data for user %s: %v", userID.(string), err)
@@ -273,7 +319,13 @@ func (h *RouteHandler) GetRoute(c *gin.Context) {
 	query := `
 		SELECT id, user_id, name, difficulty, scenery_description, additional_notes,
 		       total_distance, max_elevation_gain, estimated_duration,
-		       filename, r2_object_key, file_size, created_at, updated_at
+		       filename, r2_object_key, file_size,
+		       ST_AsText(center_point) as center_point,
+		       ST_AsText(convex_hull) as convex_hull,
+		       ST_AsText(simplified_path) as simplified_path,
+		       route_length_km,
+		       ST_AsText(bounding_box) as bounding_box,
+		       created_at, updated_at
 		FROM routes 
 		WHERE id = $1 AND user_id = $2
 	`
@@ -286,6 +338,8 @@ func (h *RouteHandler) GetRoute(c *gin.Context) {
 		&route.SceneryDescription, &route.AdditionalNotes,
 		&route.TotalDistance, &route.MaxElevationGain, &route.EstimatedDuration,
 		&route.Filename, &route.R2ObjectKey, &route.FileSize,
+		&route.CenterPoint, &route.ConvexHull, &route.SimplifiedPath,
+		&route.RouteLength, &route.BoundingBox,
 		&route.CreatedAt, &route.UpdatedAt,
 	)
 

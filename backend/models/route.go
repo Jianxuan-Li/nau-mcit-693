@@ -35,6 +35,14 @@ type Route struct {
 	R2ObjectKey        string          `json:"r2_object_key" db:"r2_object_key"`
 	FileSize           int64           `json:"file_size" db:"file_size"`
 	
+	// Geographical features
+	CenterPoint        *string         `json:"center_point,omitempty" db:"center_point"`        // WKT format point
+	ConvexHull         *string         `json:"convex_hull,omitempty" db:"convex_hull"`          // WKT format polygon  
+	SimplifiedPath     *string         `json:"simplified_path,omitempty" db:"simplified_path"`  // WKT format linestring
+	RouteLength        *float64        `json:"route_length_km,omitempty" db:"route_length_km"`  // Calculated route length in km
+	BoundingBox        *string         `json:"bounding_box,omitempty" db:"bounding_box"`        // WKT format bounding box polygon
+	TempGeoJSON        *string         `json:"-" db:"temp_geojson"`                             // Temporary GeoJSON (not exported)
+	
 	// Timestamps
 	CreatedAt          time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at" db:"updated_at"`
@@ -78,6 +86,11 @@ type RouteResponse struct {
 	EstimatedDuration  int             `json:"estimated_duration"`
 	Filename           string          `json:"filename"`
 	FileSize           int64           `json:"file_size"`
+	CenterPoint        *string         `json:"center_point,omitempty"`
+	ConvexHull         *string         `json:"convex_hull,omitempty"`
+	SimplifiedPath     *string         `json:"simplified_path,omitempty"`
+	RouteLength        *float64        `json:"route_length_km,omitempty"`
+	BoundingBox        *string         `json:"bounding_box,omitempty"`
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
@@ -109,6 +122,11 @@ func (r *Route) ToResponse() RouteResponse {
 		EstimatedDuration:  r.EstimatedDuration,
 		Filename:           r.Filename,
 		FileSize:           r.FileSize,
+		CenterPoint:        r.CenterPoint,
+		ConvexHull:         r.ConvexHull,
+		SimplifiedPath:     r.SimplifiedPath,
+		RouteLength:        r.RouteLength,
+		BoundingBox:        r.BoundingBox,
 		CreatedAt:          r.CreatedAt,
 		UpdatedAt:          r.UpdatedAt,
 	}
