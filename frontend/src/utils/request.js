@@ -144,6 +144,11 @@ export const routesApi = {
       method: 'DELETE',
     });
   },
+
+  // Get a presigned download URL for a route's GPX file
+  getDownloadUrl: async (id) => {
+    return request(`/download/routes/${id}`);
+  },
 };
 
 export const publicRoutesApi = {

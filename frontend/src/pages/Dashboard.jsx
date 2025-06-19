@@ -14,6 +14,7 @@ function Dashboard() {
   const [deletingId, setDeletingId] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, routeId: null, routeName: '' });
   const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '' });
+  const [downloadingId, setDownloadingId] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -67,6 +68,31 @@ function Dashboard() {
       });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleDownloadClick = async (routeId, routeName) => {
+    setDownloadingId(routeId);
+    try {
+      const response = await routesApi.getDownloadUrl(routeId);
+      const url = response.download_url;
+      if (!url) throw new Error('No download URL received');
+      // Create a temporary link to trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${routeName || 'track'}.gpx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      setModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Download Failed',
+        message: 'Failed to download the track. Please try again.'
+      });
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -245,6 +271,21 @@ function Dashboard() {
                         {formatDate(route.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleDownloadClick(route.id, route.name)}
+                          disabled={downloadingId === route.id}
+                          className={`text-blue-600 hover:text-blue-900 transition-colors mr-4 ${downloadingId === route.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title="Download track"
+                        >
+                          {downloadingId === route.id ? (
+                            <div className="flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-600 mr-1"></div>
+                              Downloading...
+                            </div>
+                          ) : (
+                            'Download'
+                          )}
+                        </button>
                         <button
                           onClick={() => handleDeleteClick(route.id, route.name)}
                           disabled={deletingId === route.id}
