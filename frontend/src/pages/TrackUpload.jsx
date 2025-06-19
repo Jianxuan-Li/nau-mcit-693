@@ -465,6 +465,7 @@ function TrackUpload() {
             description: track.info.description + (track.info.scenery ? '\n\nScenery: ' + track.info.scenery : ''),
             difficulty: track.info.difficulty,
             totalDistance: track.stats.distance,
+            maxElevationGain: track.stats.elevation,
             estimatedDuration: Math.max(60, Math.round(track.stats.distance * 12)) // Estimate 12 minutes per km, minimum 60 minutes
           };
 

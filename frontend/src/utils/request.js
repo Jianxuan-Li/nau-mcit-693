@@ -114,6 +114,7 @@ export const routesApi = {
     formData.append('Description', routeData.description);
     formData.append('Difficulty', routeData.difficulty);
     formData.append('TotalDistance', routeData.totalDistance);
+    formData.append('MaxElevationGain', routeData.maxElevationGain || 0);
     formData.append('EstimatedDuration', routeData.estimatedDuration || 60);
     
     return request('/routes/', {
@@ -145,32 +146,10 @@ export const routesApi = {
   },
 };
 
-export const gpxApi = {
-  upload: async (file, description = '') => {
-    const formData = new FormData();
-    formData.append('gpx_file', file);
-    formData.append('description', description);
-    
-    console.log('DEBUG: Uploading file:', file.name, 'Size:', file.size, 'bytes');
-    console.log('DEBUG: FormData entries:');
-    for (let [key, value] of formData.entries()) {
-      console.log(`  ${key}:`, value);
-    }
-    
-    return request('/gpx/upload', {
-      method: 'POST',
-      body: formData,
-      isFormData: true,
-    });
-  },
-};
-
-export const trailsApi = {
-  create: async (trailData) => {
-    return request('/trails', {
-      method: 'POST',
-      body: trailData,
-    });
+export const publicRoutesApi = {
+  getAll: async (queryParams = '') => {
+    const endpoint = queryParams ? `/public/routes?${queryParams}` : '/public/routes';
+    return request(endpoint, { withAuth: false });
   },
 };
 
