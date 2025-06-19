@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { publicRoutesApi } from '../utils/request';
+import GPXParser from 'gpxparser';
+import { publicRoutesApi, routesApi } from '../utils/request';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -21,6 +22,9 @@ function TrackBrowser() {
   const [difficultyFilter, setDifficultyFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [loadedGpxData, setLoadedGpxData] = useState(new Map()); // Map of routeId -> gpx data
+  const [loadingGpx, setLoadingGpx] = useState(new Set()); // Set of routeIds being loaded
+  const [gpxErrors, setGpxErrors] = useState(new Map()); // Map of routeId -> error message
   const limit = 10;
 
   // Fetch routes from API
@@ -168,7 +172,9 @@ function TrackBrowser() {
     // Clear all existing track layers and sources
     const style = map.current.getStyle();
     if (style && style.layers) {
-      const trackLayers = style.layers.filter(layer => layer.id.startsWith('track-layer-'));
+      const trackLayers = style.layers.filter(layer => 
+        layer.id.startsWith('track-layer-') || layer.id.startsWith('gpx-layer-')
+      );
       trackLayers.forEach(layer => {
         map.current.removeLayer(layer.id);
       });
@@ -176,19 +182,20 @@ function TrackBrowser() {
     
     if (style && style.sources) {
       Object.keys(style.sources).forEach(sourceId => {
-        if (sourceId.startsWith('track-')) {
+        if (sourceId.startsWith('track-') || sourceId.startsWith('gpx-')) {
           map.current.removeSource(sourceId);
         }
       });
     }
 
-    // Add new track layers
+    // Add simplified path layers for all tracks
     tracks.forEach((track) => {
       if (!track.simplifiedPath || !track.simplifiedPath.coordinates || track.simplifiedPath.coordinates.length === 0) return;
       
       const sourceId = `track-${track.id}`;
       const layerId = `track-layer-${track.id}`;
       const isSelected = track.id === selectedTrack?.id;
+      const hasGpxData = loadedGpxData.has(track.id);
 
       map.current.addSource(sourceId, {
         type: 'geojson',
@@ -214,8 +221,8 @@ function TrackBrowser() {
         },
         paint: {
           'line-color': isSelected ? '#2563eb' : '#10b981',
-          'line-width': isSelected ? 5 : 3,
-          'line-opacity': isSelected ? 1 : 0.8
+          'line-width': hasGpxData && isSelected ? 2 : (isSelected ? 5 : 3),
+          'line-opacity': hasGpxData && isSelected ? 0.6 : (isSelected ? 1 : 0.8)
         }
       });
 
@@ -240,7 +247,45 @@ function TrackBrowser() {
         setSelectedTrack(track);
       });
     });
-  }, [tracks, selectedTrack]);
+
+    // Add full GPX track for selected track if available
+    if (selectedTrack && loadedGpxData.has(selectedTrack.id)) {
+      const gpxData = loadedGpxData.get(selectedTrack.id);
+      const gpxSourceId = `gpx-${selectedTrack.id}`;
+      const gpxLayerId = `gpx-layer-${selectedTrack.id}`;
+
+      map.current.addSource(gpxSourceId, {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {
+            id: selectedTrack.id,
+            name: selectedTrack.name,
+            type: 'full_gpx'
+          },
+          geometry: {
+            type: 'LineString',
+            coordinates: gpxData.coordinates
+          }
+        }
+      });
+
+      map.current.addLayer({
+        id: gpxLayerId,
+        type: 'line',
+        source: gpxSourceId,
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#ef4444', // Red color for full GPX track
+          'line-width': 3,
+          'line-opacity': 0.9
+        }
+      });
+    }
+  }, [tracks, selectedTrack, loadedGpxData]);
 
   // Animate to selected track
   useEffect(() => {
@@ -291,6 +336,72 @@ function TrackBrowser() {
           console.warn('Fallback animation also failed:', fallbackError);
         }
       }
+    }
+  }, [selectedTrack]);
+
+  // Load GPX data for a track
+  const loadGpxData = async (track) => {
+    if (loadedGpxData.has(track.id) || loadingGpx.has(track.id)) {
+      return; // Already loaded or loading
+    }
+
+    setLoadingGpx(prev => new Set([...prev, track.id]));
+    setGpxErrors(prev => {
+      const newErrors = new Map(prev);
+      newErrors.delete(track.id);
+      return newErrors;
+    });
+
+    try {
+      // Get download URL from API
+      const downloadResponse = await routesApi.getDownloadUrl(track.id);
+      const downloadUrl = downloadResponse.download_url;
+
+      // Fetch the GPX file
+      const gpxResponse = await fetch(downloadUrl);
+      if (!gpxResponse.ok) {
+        throw new Error(`Failed to download GPX file: ${gpxResponse.statusText}`);
+      }
+
+      const gpxText = await gpxResponse.text();
+      
+      // Parse GPX
+      const gpxParser = new GPXParser();
+      gpxParser.parse(gpxText);
+
+      if (!gpxParser.tracks || gpxParser.tracks.length === 0) {
+        throw new Error('No tracks found in GPX file');
+      }
+
+      const coordinates = gpxParser.tracks[0].points.map(point => [point.lon, point.lat]);
+      
+      const gpxData = {
+        coordinates,
+        parser: gpxParser,
+        stats: {
+          distance: gpxParser.tracks[0].distance?.total ? (gpxParser.tracks[0].distance.total / 1000).toFixed(2) : 0,
+          elevation: gpxParser.tracks[0].elevation?.max ? Math.round(gpxParser.tracks[0].elevation.max) : 0,
+          points: gpxParser.tracks[0].points?.length || 0
+        }
+      };
+
+      setLoadedGpxData(prev => new Map([...prev, [track.id, gpxData]]));
+    } catch (error) {
+      console.error('Error loading GPX data:', error);
+      setGpxErrors(prev => new Map([...prev, [track.id, error.message]]));
+    } finally {
+      setLoadingGpx(prev => {
+        const newLoading = new Set(prev);
+        newLoading.delete(track.id);
+        return newLoading;
+      });
+    }
+  };
+
+  // Load GPX data when a track is selected
+  useEffect(() => {
+    if (selectedTrack && !loadedGpxData.has(selectedTrack.id) && !loadingGpx.has(selectedTrack.id)) {
+      loadGpxData(selectedTrack);
     }
   }, [selectedTrack]);
 
@@ -389,6 +500,25 @@ function TrackBrowser() {
             Clear Filters
           </button>
         </div>
+        
+        {/* Legend */}
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Map Legend</h3>
+          <div className="flex flex-wrap gap-4 text-xs">
+            <div className="flex items-center">
+              <div className="w-4 h-0.5 bg-green-500 mr-2"></div>
+              <span className="text-gray-600">Simplified path</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-0.5 bg-blue-500 mr-2"></div>
+              <span className="text-gray-600">Selected route</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-0.5 bg-red-500 mr-2"></div>
+              <span className="text-gray-600">Full GPX track</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main content area */}
@@ -477,7 +607,7 @@ function TrackBrowser() {
                             by {track.user.name}
                           </div>
                         )}
-                        <div className="mt-2">
+                        <div className="mt-2 flex items-center justify-between">
                           <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                             track.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
                             track.difficulty === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
@@ -486,6 +616,32 @@ function TrackBrowser() {
                           }`}>
                             {track.difficulty}
                           </span>
+                          {selectedTrack?.id === track.id && (
+                            <div className="flex items-center text-xs">
+                              {loadingGpx.has(track.id) && (
+                                <div className="flex items-center text-blue-600">
+                                  <div className="animate-spin rounded-full h-3 w-3 border-t border-b border-blue-600 mr-1"></div>
+                                  Loading GPX...
+                                </div>
+                              )}
+                              {loadedGpxData.has(track.id) && !loadingGpx.has(track.id) && (
+                                <div className="flex items-center text-green-600">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                  Full track loaded
+                                </div>
+                              )}
+                              {gpxErrors.has(track.id) && (
+                                <div className="flex items-center text-red-600" title={gpxErrors.get(track.id)}>
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  Load failed
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -578,7 +734,7 @@ function TrackBrowser() {
                             by {track.user.name}
                           </div>
                         )}
-                        <div className="mt-2">
+                        <div className="mt-2 flex items-center justify-between">
                           <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                             track.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
                             track.difficulty === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
@@ -587,6 +743,32 @@ function TrackBrowser() {
                           }`}>
                             {track.difficulty}
                           </span>
+                          {selectedTrack?.id === track.id && (
+                            <div className="flex items-center text-xs">
+                              {loadingGpx.has(track.id) && (
+                                <div className="flex items-center text-blue-600">
+                                  <div className="animate-spin rounded-full h-3 w-3 border-t border-b border-blue-600 mr-1"></div>
+                                  Loading GPX...
+                                </div>
+                              )}
+                              {loadedGpxData.has(track.id) && !loadingGpx.has(track.id) && (
+                                <div className="flex items-center text-green-600">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                  Full track loaded
+                                </div>
+                              )}
+                              {gpxErrors.has(track.id) && (
+                                <div className="flex items-center text-red-600" title={gpxErrors.get(track.id)}>
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  Load failed
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
