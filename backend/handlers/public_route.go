@@ -55,6 +55,10 @@ func (h *PublicRouteHandler) GetAllRoutes(c *gin.Context) {
 		SELECT r.id, r.user_id, r.name, r.difficulty, r.scenery_description, r.additional_notes,
 		       r.total_distance, r.max_elevation_gain, r.estimated_duration,
 		       r.filename, r.file_size, r.created_at, r.updated_at,
+		       ST_AsGeoJSON(ST_Force2D(center_point)) as center_point_geojson,
+		       ST_AsGeoJSON(ST_Force2D(simplified_path)) as simplified_path_geojson,
+		       route_length_km,
+		       ST_AsGeoJSON(ST_Force2D(bounding_box)) as bounding_box_geojson,
 		       u.id, u.email, u.name, u.created_at, u.is_active, u.email_verified, u.last_login
 		FROM routes r
 		JOIN users u ON r.user_id = u.id
@@ -113,12 +117,17 @@ func (h *PublicRouteHandler) GetAllRoutes(c *gin.Context) {
 	for rows.Next() {
 		var route models.Route
 		var user models.User
+		var centerPointGeoJSON *string
+		var simplifiedPathGeoJSON *string
+		var boundingBoxGeoJSON *string
 		
 		err := rows.Scan(
 			&route.ID, &route.UserID, &route.Name, &route.Difficulty,
 			&route.SceneryDescription, &route.AdditionalNotes,
 			&route.TotalDistance, &route.MaxElevationGain, &route.EstimatedDuration,
 			&route.Filename, &route.FileSize, &route.CreatedAt, &route.UpdatedAt,
+			&centerPointGeoJSON, &simplifiedPathGeoJSON,
+			&route.RouteLength, &boundingBoxGeoJSON,
 			&user.ID, &user.Email, &user.Name, &user.CreatedAt, &user.IsActive, &user.EmailVerified, &user.LastLogin,
 		)
 		if err != nil {
@@ -129,6 +138,11 @@ func (h *PublicRouteHandler) GetAllRoutes(c *gin.Context) {
 			return
 		}
 
+		// Set GeoJSON fields
+		route.CenterPoint = centerPointGeoJSON
+		route.SimplifiedPath = simplifiedPathGeoJSON
+		route.BoundingBox = boundingBoxGeoJSON
+		
 		userResponse := user.ToPublicResponse()
 		routeWithUser := route.ToResponseWithUser(userResponse)
 		routes = append(routes, routeWithUser)

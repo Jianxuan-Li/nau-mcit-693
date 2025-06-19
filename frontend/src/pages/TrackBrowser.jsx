@@ -48,14 +48,48 @@ function TrackBrowser() {
       const pagination = response.pagination || (response.data && response.data.pagination);
       
       if (routes) {
-        const routesData = routes.map(route => ({
-          id: route.id,
-          name: route.name,
-          distance: route.total_distance ? `${route.total_distance} km` : 'N/A',
-          elevation: route.max_elevation_gain !== null && route.max_elevation_gain !== undefined ? `${route.max_elevation_gain}m` : '0m',
-          difficulty: route.difficulty || 'unknown',
-          coordinates: route.coordinates ? JSON.parse(route.coordinates) : []
-        }));
+        const routesData = routes.map(route => {
+          let simplifiedPath = null;
+          let centerPoint = null;
+          let boundingBox = null;
+          
+          // Parse GeoJSON strings
+          if (route.simplified_path) {
+            try {
+              simplifiedPath = JSON.parse(route.simplified_path);
+            } catch (e) {
+              console.warn('Failed to parse simplified_path for route:', route.id);
+            }
+          }
+          
+          if (route.center_point) {
+            try {
+              centerPoint = JSON.parse(route.center_point);
+            } catch (e) {
+              console.warn('Failed to parse center_point for route:', route.id);
+            }
+          }
+          
+          if (route.bounding_box) {
+            try {
+              boundingBox = JSON.parse(route.bounding_box);
+            } catch (e) {
+              console.warn('Failed to parse bounding_box for route:', route.id);
+            }
+          }
+          
+          return {
+            id: route.id,
+            name: route.name,
+            distance: route.route_length_km ? `${route.route_length_km.toFixed(2)} km` : (route.total_distance ? `${route.total_distance} km` : 'N/A'),
+            elevation: route.max_elevation_gain !== null && route.max_elevation_gain !== undefined ? `${route.max_elevation_gain}m` : '0m',
+            difficulty: route.difficulty || 'unknown',
+            simplifiedPath: simplifiedPath,
+            centerPoint: centerPoint,
+            boundingBox: boundingBox,
+            user: route.user
+          };
+        });
         
         setTracks(routesData);
         setTotalPages(pagination ? pagination.total_pages : 1);
@@ -150,20 +184,23 @@ function TrackBrowser() {
 
     // Add new track layers
     tracks.forEach((track) => {
-      if (!track.coordinates || track.coordinates.length === 0) return;
+      if (!track.simplifiedPath || !track.simplifiedPath.coordinates || track.simplifiedPath.coordinates.length === 0) return;
       
       const sourceId = `track-${track.id}`;
       const layerId = `track-layer-${track.id}`;
+      const isSelected = track.id === selectedTrack?.id;
 
       map.current.addSource(sourceId, {
         type: 'geojson',
         data: {
           type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: track.coordinates
-          }
+          properties: {
+            id: track.id,
+            name: track.name,
+            distance: track.distance,
+            difficulty: track.difficulty
+          },
+          geometry: track.simplifiedPath
         }
       });
 
@@ -176,18 +213,27 @@ function TrackBrowser() {
           'line-cap': 'round'
         },
         paint: {
-          'line-color': track.id === selectedTrack?.id ? '#3b82f6' : '#10b981',
-          'line-width': 4
+          'line-color': isSelected ? '#2563eb' : '#10b981',
+          'line-width': isSelected ? 5 : 3,
+          'line-opacity': isSelected ? 1 : 0.8
         }
       });
 
       // Add hover effect
       map.current.on('mouseenter', layerId, () => {
         map.current.getCanvas().style.cursor = 'pointer';
+        if (!isSelected) {
+          map.current.setPaintProperty(layerId, 'line-width', 4);
+          map.current.setPaintProperty(layerId, 'line-opacity', 1);
+        }
       });
 
       map.current.on('mouseleave', layerId, () => {
         map.current.getCanvas().style.cursor = '';
+        if (!isSelected) {
+          map.current.setPaintProperty(layerId, 'line-width', 3);
+          map.current.setPaintProperty(layerId, 'line-opacity', 0.8);
+        }
       });
 
       map.current.on('click', layerId, () => {
@@ -195,6 +241,92 @@ function TrackBrowser() {
       });
     });
   }, [tracks, selectedTrack]);
+
+  // Animate to selected track
+  useEffect(() => {
+    if (!map.current || !selectedTrack || !selectedTrack.boundingBox) return;
+    
+    try {
+      const bbox = selectedTrack.boundingBox;
+      if (bbox && bbox.coordinates && bbox.coordinates[0]) {
+        // Extract coordinates from bounding box polygon
+        const coords = bbox.coordinates[0];
+        const lngs = coords.map(coord => coord[0]);
+        const lats = coords.map(coord => coord[1]);
+        
+        const bounds = [
+          [Math.min(...lngs), Math.min(...lats)], // Southwest
+          [Math.max(...lngs), Math.max(...lats)]  // Northeast
+        ];
+        
+        // Animate to fit the bounds with padding
+        map.current.fitBounds(bounds, {
+          padding: { top: 50, bottom: 50, left: 50, right: 50 },
+          duration: 1500, // Animation duration in milliseconds
+          essential: true
+        });
+      } else if (selectedTrack.centerPoint && selectedTrack.centerPoint.coordinates) {
+        // Fallback to center point if bounding box is not available
+        const [lng, lat] = selectedTrack.centerPoint.coordinates;
+        map.current.flyTo({
+          center: [lng, lat],
+          zoom: 14,
+          duration: 1500,
+          essential: true
+        });
+      }
+    } catch (error) {
+      console.warn('Error animating to selected track:', error);
+      // Fallback: try to use center point
+      if (selectedTrack.centerPoint && selectedTrack.centerPoint.coordinates) {
+        try {
+          const [lng, lat] = selectedTrack.centerPoint.coordinates;
+          map.current.flyTo({
+            center: [lng, lat],
+            zoom: 14,
+            duration: 1500,
+            essential: true
+          });
+        } catch (fallbackError) {
+          console.warn('Fallback animation also failed:', fallbackError);
+        }
+      }
+    }
+  }, [selectedTrack]);
+
+  // Function to fit all tracks in view
+  const fitAllTracks = () => {
+    if (!map.current || tracks.length === 0) return;
+    
+    const validTracks = tracks.filter(track => track.boundingBox && track.boundingBox.coordinates);
+    if (validTracks.length === 0) return;
+    
+    try {
+      // Calculate combined bounds for all tracks
+      let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+      
+      validTracks.forEach(track => {
+        const coords = track.boundingBox.coordinates[0];
+        coords.forEach(coord => {
+          const [lng, lat] = coord;
+          minLng = Math.min(minLng, lng);
+          minLat = Math.min(minLat, lat);
+          maxLng = Math.max(maxLng, lng);
+          maxLat = Math.max(maxLat, lat);
+        });
+      });
+      
+      const bounds = [[minLng, minLat], [maxLng, maxLat]];
+      
+      map.current.fitBounds(bounds, {
+        padding: { top: 50, bottom: 50, left: 50, right: 50 },
+        duration: 1500,
+        essential: true
+      });
+    } catch (error) {
+      console.warn('Error fitting all tracks:', error);
+    }
+  };
 
   // Update map style when changed
   useEffect(() => {
@@ -270,7 +402,18 @@ function TrackBrowser() {
             <div className="h-1/3 bg-white rounded-lg shadow border border-gray-200 overflow-y-auto">
               <div className="p-4">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">Track List</h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold">Track List</h2>
+                    {tracks.length > 0 && (
+                      <button
+                        onClick={fitAllTracks}
+                        className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                        title="Fit all tracks in view"
+                      >
+                        Fit All
+                      </button>
+                    )}
+                  </div>
                   {totalPages > 1 && (
                     <div className="flex items-center space-x-2">
                       <button
@@ -329,6 +472,11 @@ function TrackBrowser() {
                           <span>{track.distance}</span>
                           <span>{track.elevation} elevation</span>
                         </div>
+                        {track.user && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            by {track.user.name}
+                          </div>
+                        )}
                         <div className="mt-2">
                           <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                             track.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
@@ -355,7 +503,18 @@ function TrackBrowser() {
             <div className="w-2/5 bg-white rounded-lg shadow border border-gray-200 overflow-y-auto">
               <div className="p-4">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">Track List</h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold">Track List</h2>
+                    {tracks.length > 0 && (
+                      <button
+                        onClick={fitAllTracks}
+                        className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                        title="Fit all tracks in view"
+                      >
+                        Fit All
+                      </button>
+                    )}
+                  </div>
                   {totalPages > 1 && (
                     <div className="flex items-center space-x-2">
                       <button
@@ -414,6 +573,11 @@ function TrackBrowser() {
                           <span>{track.distance}</span>
                           <span>{track.elevation} elevation</span>
                         </div>
+                        {track.user && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            by {track.user.name}
+                          </div>
+                        )}
                         <div className="mt-2">
                           <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                             track.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
