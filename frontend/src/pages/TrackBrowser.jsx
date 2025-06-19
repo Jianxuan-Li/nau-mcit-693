@@ -9,6 +9,10 @@ function TrackBrowser() {
   const map = useRef(null);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/outdoors-v12');
   const [selectedTrack, setSelectedTrack] = useState(null);
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
 
   // Mock data for tracks
   const tracks = [
@@ -41,6 +45,24 @@ function TrackBrowser() {
       ]
     }
   ];
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+      
+      // Resize map when window size changes
+      if (map.current) {
+        map.current.resize();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!map.current) {
@@ -133,9 +155,18 @@ function TrackBrowser() {
     setMapStyle(style);
   };
 
+  // Calculate dynamic heights
+  const headerHeight = 80; // Approximate header height
+  const availableHeight = windowSize.height - headerHeight;
+  const isMobile = windowSize.width < 1024; // lg breakpoint
+
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
+    <div 
+      className="flex flex-col overflow-hidden"
+      style={{ height: 'calc(100vh - 64px)' }}
+    >
+      {/* Header section */}
+      <div className="flex justify-between items-center p-6 bg-white border-b border-gray-200 flex-shrink-0">
         <h1 className="text-3xl font-bold text-gray-900">
           Track Browser
         </h1>
@@ -163,42 +194,89 @@ function TrackBrowser() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-4">
-          <div ref={mapContainer} className="h-[600px] rounded" />
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-xl font-semibold mb-4">Track List</h2>
-          <div className="space-y-4">
-            {tracks.map((track) => (
-              <div
-                key={track.id}
-                className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                  selectedTrack?.id === track.id
-                    ? 'bg-blue-50 border-2 border-blue-500'
-                    : 'bg-gray-50 hover:bg-gray-100'
-                }`}
-                onClick={() => setSelectedTrack(track)}
-              >
-                <h3 className="font-medium text-gray-900">{track.name}</h3>
-                <div className="mt-2 flex justify-between text-sm text-gray-600">
-                  <span>{track.distance}</span>
-                  <span>{track.elevation} elevation</span>
-                </div>
-                <div className="mt-2">
-                  <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                    track.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-                    track.difficulty === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {track.difficulty}
-                  </span>
+      {/* Main content area */}
+      <div className="flex-1 flex overflow-hidden p-6 gap-6">
+        {isMobile ? (
+          // Mobile layout: stacked
+          <div className="flex flex-col w-full gap-6">
+            <div className="flex-1 bg-white rounded-lg shadow">
+              <div ref={mapContainer} className="w-full h-full rounded-lg" />
+            </div>
+            <div className="h-1/3 bg-white rounded-lg shadow border border-gray-200 overflow-y-auto">
+              <div className="p-4">
+                <h2 className="text-xl font-semibold mb-4">Track List</h2>
+                <div className="space-y-4">
+                  {tracks.map((track) => (
+                    <div
+                      key={track.id}
+                      className={`p-4 rounded-lg cursor-pointer transition-colors ${
+                        selectedTrack?.id === track.id
+                          ? 'bg-blue-50 border-2 border-blue-500'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={() => setSelectedTrack(track)}
+                    >
+                      <h3 className="font-medium text-gray-900">{track.name}</h3>
+                      <div className="mt-2 flex justify-between text-sm text-gray-600">
+                        <span>{track.distance}</span>
+                        <span>{track.elevation} elevation</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          track.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                          track.difficulty === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {track.difficulty}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          // Desktop layout: side by side
+          <>
+            <div className="w-3/5 bg-white rounded-lg shadow">
+              <div ref={mapContainer} className="w-full h-full rounded-lg" />
+            </div>
+            <div className="w-2/5 bg-white rounded-lg shadow border border-gray-200 overflow-y-auto">
+              <div className="p-4">
+                <h2 className="text-xl font-semibold mb-4">Track List</h2>
+                <div className="space-y-4">
+                  {tracks.map((track) => (
+                    <div
+                      key={track.id}
+                      className={`p-4 rounded-lg cursor-pointer transition-colors ${
+                        selectedTrack?.id === track.id
+                          ? 'bg-blue-50 border-2 border-blue-500'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={() => setSelectedTrack(track)}
+                    >
+                      <h3 className="font-medium text-gray-900">{track.name}</h3>
+                      <div className="mt-2 flex justify-between text-sm text-gray-600">
+                        <span>{track.distance}</span>
+                        <span>{track.elevation} elevation</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          track.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                          track.difficulty === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {track.difficulty}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
