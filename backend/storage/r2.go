@@ -87,10 +87,13 @@ func (r *R2Storage) GetPresignedURL(key string, duration time.Duration) (string,
 
 	presignClient := s3.NewPresignClient(r.client)
 
-	req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+	// Set ResponseContentDisposition to specify the filename for download
+	input := &s3.GetObjectInput{
 		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(key),
-	}, func(opts *s3.PresignOptions) {
+	}
+
+	req, err := presignClient.PresignGetObject(ctx, input, func(opts *s3.PresignOptions) {
 		opts.Expires = duration
 		opts.ClientOptions = append(opts.ClientOptions, func(o *s3.Options) {
 			o.UsePathStyle = false
@@ -100,6 +103,37 @@ func (r *R2Storage) GetPresignedURL(key string, duration time.Duration) (string,
 
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
+	}
+
+	url := req.URL
+	if strings.Contains(url, "\\u0026") {
+		url = strings.ReplaceAll(url, "\\u0026", "&")
+	}
+
+	return url, nil
+}
+
+func (r *R2Storage) GetPresignedURLWithFilename(key string, duration time.Duration, filename string) (string, error) {
+	ctx := context.Background()
+
+	presignClient := s3.NewPresignClient(r.client)
+
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(r.bucketName),
+		Key:    aws.String(key),
+		ResponseContentDisposition: aws.String(fmt.Sprintf(`attachment; filename="%s"`, filename)),
+	}
+
+	req, err := presignClient.PresignGetObject(ctx, input, func(opts *s3.PresignOptions) {
+		opts.Expires = duration
+		opts.ClientOptions = append(opts.ClientOptions, func(o *s3.Options) {
+			o.UsePathStyle = false
+			o.UseARNRegion = true
+		})
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to generate presigned URL with filename: %w", err)
 	}
 
 	url := req.URL

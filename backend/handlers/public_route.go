@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gpxbase/backend/models"
 	"gpxbase/backend/storage"
+	"gpxbase/backend/utils"
 )
 
 const (
@@ -248,7 +249,7 @@ func (h *PublicRouteHandler) GenerateDownloadURL(c *gin.Context) {
 
 	// Generate presigned URL for file access
 	log.Printf("INFO: Generating presigned URL for route file: %s", route.R2ObjectKey)
-	presignedURL, err := h.storage.GetPresignedURL(route.R2ObjectKey, time.Duration(DownloadURLExpirationMinutes)*time.Minute)
+	presignedURL, err := h.storage.GetPresignedURLWithFilename(route.R2ObjectKey, time.Duration(DownloadURLExpirationMinutes)*time.Minute, utils.GenerateGPXFileName(route.Name, route.ID))
 	if err != nil {
 		log.Printf("ERROR: Failed to generate presigned URL for %s: %v", route.R2ObjectKey, err)
 		c.JSON(http.StatusInternalServerError, gin.H{

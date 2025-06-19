@@ -223,28 +223,6 @@ function TrackBrowser() {
           <h1 className="text-3xl font-bold text-gray-900">
             Track Browser
           </h1>
-          <div className="flex space-x-4">
-            <button
-              onClick={() => handleMapStyleChange('mapbox://styles/mapbox/outdoors-v12')}
-              className={`px-4 py-2 rounded ${
-                mapStyle === 'mapbox://styles/mapbox/outdoors-v12'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Outdoor Map
-            </button>
-            <button
-              onClick={() => handleMapStyleChange('mapbox://styles/mapbox/terrain-v2')}
-              className={`px-4 py-2 rounded ${
-                mapStyle === 'mapbox://styles/mapbox/terrain-v2'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Terrain Map
-            </button>
-          </div>
         </div>
         
         {/* Search and Filter Controls */}
