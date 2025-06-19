@@ -141,13 +141,13 @@ function TrackUpload() {
 
     for (const file of files) {
       try {
-        // Check file size (10MB limit to match backend)
-        if (file.size > 10 * 1024 * 1024) {
+        // Check file size (20MB limit to match backend)
+        if (file.size > 20 * 1024 * 1024) {
           setModal({
             isOpen: true,
             type: 'error',
             title: 'File Too Large',
-            message: `File ${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB.`
+            message: `File ${file.name} is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 20MB.`
           });
           continue;
         }
@@ -306,7 +306,7 @@ function TrackUpload() {
             Browse Files
           </label>
           <p className="text-xs text-gray-500">
-            GPX only • Max 10MB each
+            GPX only • Max 20MB each
           </p>
         </div>
       </div>

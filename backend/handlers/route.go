@@ -52,7 +52,7 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 	log.Printf("INFO: Route creation initiated by user: %s", userID.(string))
 
 	// Parse multipart form
-	err := c.Request.ParseMultipartForm(10 << 20) // 10 MB max
+	err := c.Request.ParseMultipartForm(20 << 20) // 20 MB max
 	if err != nil {
 		log.Printf("ERROR: Failed to parse multipart form for user %s: %v", userID.(string), err)
 		c.JSON(http.StatusBadRequest, gin.H{
