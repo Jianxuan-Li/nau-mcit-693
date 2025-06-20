@@ -21,6 +21,7 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	healthHandler := handlers.NewHealthHandler(db)
 	routeHandler := handlers.NewRouteHandler(db)
 	publicRouteHandler := handlers.NewPublicRouteHandler(db)
+	spatialRouteHandler := handlers.NewSpatialRouteHandler(db)
 
 	// API group
 	api := r.Group("/api")
@@ -60,6 +61,7 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 			public := v1.Group("/public")
 			{
 				public.GET("/routes", publicRouteHandler.GetAllRoutes) // Get all routes from all users
+				public.GET("/routes/spatial", spatialRouteHandler.GetRoutesInBounds) // Get routes within map bounds
 			}
 
 			// Download routes (authenticated but can download any route)

@@ -1,0 +1,68 @@
+### Get Routes in Map Bounds (Basic) - North America
+GET http://localhost:8000/api/v1/public/routes/spatial?min_lat=25.0&max_lat=75.0&min_lng=-180.0&max_lng=-50.0
+Content-Type: application/json
+
+###
+
+### Get Routes in Map Bounds (with Pagination) - North America
+GET http://localhost:8000/api/v1/public/routes/spatial?min_lat=25.0&max_lat=75.0&min_lng=-180.0&max_lng=-50.0&page=1&limit=10
+Content-Type: application/json
+
+###
+
+###
+
+### Get Routes in Large Area (All Canada)
+GET http://localhost:8000/api/v1/public/routes/spatial?min_lat=41.0&max_lat=75.0&min_lng=-142.0&max_lng=-52.0&limit=20
+Content-Type: application/json
+
+###
+
+### Get Routes in Smaller Area (Central Canada)
+GET http://localhost:8000/api/v1/public/routes/spatial?min_lat=43.0&max_lat=60.0&min_lng=-110.0&max_lng=-75.0&limit=50
+Content-Type: application/json
+
+###
+
+### Test Error Handling - Missing Parameters
+GET http://localhost:8000/api/v1/public/routes/spatial?min_lat=45.0&max_lat=46.0
+Content-Type: application/json
+
+###
+
+### Test Error Handling - Invalid Bounds (min >= max)
+GET http://localhost:8000/api/v1/public/routes/spatial?min_lat=46.0&max_lat=45.0&min_lng=-80.0&max_lng=-79.0
+Content-Type: application/json
+
+###
+
+### Test Error Handling - Invalid Parameter Format
+GET http://localhost:8000/api/v1/public/routes/spatial?min_lat=invalid&max_lat=46.0&min_lng=-80.0&max_lng=-79.0
+Content-Type: application/json
+
+###
+
+# API Documentation:
+# 
+# Endpoint: GET /api/v1/public/routes/spatial
+# 
+# Required Query Parameters:
+# - min_lat: Minimum latitude (southern boundary)
+# - max_lat: Maximum latitude (northern boundary) 
+# - min_lng: Minimum longitude (western boundary)
+# - max_lng: Maximum longitude (eastern boundary)
+#
+# Optional Query Parameters:
+# - page: Page number for pagination (default: 1)
+# - limit: Number of results per page (default: 50, max: 200)
+#
+# Response:
+# - routes: Array of route objects with center points within the specified bounds
+# - bounds: Echo of the requested bounds for verification
+# - pagination: Pagination information including total count and pages
+#
+# Features:
+# - Routes are ordered by distance from the center of the bounds (closest first)
+# - Only returns routes with valid center_point coordinates
+# - Includes full route details, simplified path, and user information
+# - All filtering (difficulty, search, etc.) should be handled by the frontend
