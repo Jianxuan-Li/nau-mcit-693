@@ -68,18 +68,6 @@ export function useGpxLoader() {
       };
 
       actions.addLoadedGpx(track.id, gpxData);
-      
-      console.log(`GPX loaded successfully for track: ${track.name}`, {
-        trackId: track.id,
-        points: gpxData.stats.points,
-        distance: gpxData.stats.distance,
-        elevation: gpxData.stats.elevation,
-        coordinatesLength: gpxData.coordinates.length
-      });
-      
-      // Verify the data was added to context
-      console.log('GPX data added to context for track:', track.id);
-
     } catch (error) {
       console.error('Error loading GPX data:', error);
       actions.addGpxError(track.id, error.message);
