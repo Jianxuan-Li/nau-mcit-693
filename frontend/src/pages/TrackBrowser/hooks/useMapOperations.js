@@ -27,6 +27,13 @@ export function useMapOperations() {
   const currentLayersRef = useRef(new Set());
   const currentEventsRef = useRef(new Map());
 
+  // Helper function to get the proper insertion point for layers
+  const getInsertionPoint = useCallback((map, layerType) => {
+    // Always add to the very top, don't specify beforeId
+    // This ensures our layers are always above all map layers
+    return null;
+  }, []);
+
   // Helper function to clean up a specific layer
   const cleanupLayer = useCallback((map, layerId) => {
     if (map.getLayer(layerId)) {
@@ -109,6 +116,7 @@ export function useMapOperations() {
             }
           });
 
+          // Add layer at the top (above all map features)
           map.addLayer({
             id: layerId,
             type: 'line',
@@ -146,7 +154,7 @@ export function useMapOperations() {
       cleanupLayer(map, layerId);
       cleanupSource(map, sourceId);
     });
-  }, [tracks, selectedTrack, loadedGpxData, cleanupLayer, cleanupSource]);
+  }, [tracks, selectedTrack, loadedGpxData, cleanupLayer, cleanupSource, getInsertionPoint]);
 
   // Add event listeners for a track layer
   const addTrackEventListeners = useCallback((map, layerId, isSelected, track) => {
@@ -229,6 +237,7 @@ export function useMapOperations() {
           }
         });
 
+        // Add GPX layer at the very top (no beforeId means it goes to the top)
         map.addLayer({
           id: gpxLayerId,
           type: 'line',
@@ -250,14 +259,17 @@ export function useMapOperations() {
         console.error('Error adding GPX layer:', error);
       }
     }
-  }, [selectedTrack, loadedGpxData, cleanupLayer, cleanupSource]);
+  }, [selectedTrack, loadedGpxData, cleanupLayer, cleanupSource, getInsertionPoint]);
 
   // Optimized update function
   const updateMapTracks = useCallback(() => {
     const currentMap = getMapInstance();
     if (!currentMap || !currentMap.isStyleLoaded()) return;
 
+    // Add simplified tracks first (they will be at the bottom of our custom layers)
     updateSimplifiedTracks(currentMap);
+    
+    // Add GPX track last (it will be on top of simplified tracks)
     updateGpxTrack(currentMap);
   }, [getMapInstance, updateSimplifiedTracks, updateGpxTrack]);
 
@@ -399,9 +411,23 @@ export function useMapOperations() {
   const updateMapStyle = useCallback((style) => {
     const currentMap = getMapInstance();
     if (currentMap) {
+      // Clear layer tracking since setStyle will remove all layers
+      currentLayersRef.current.clear();
+      currentEventsRef.current.clear();
+      
       currentMap.setStyle(style);
+      
+      // Re-add all track layers after style loads
+      const handleStyleLoad = () => {
+        // Small delay to ensure style is fully loaded
+        setTimeout(() => {
+          updateMapTracks();
+        }, 100);
+        currentMap.off('styledata', handleStyleLoad);
+      };
+      currentMap.on('styledata', handleStyleLoad);
     }
-  }, [getMapInstance]);
+  }, [getMapInstance, updateMapTracks]);
 
   // Memoized dependencies to prevent unnecessary re-renders
   const tracksHash = useMemo(() => {
