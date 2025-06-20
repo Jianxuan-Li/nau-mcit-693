@@ -9,12 +9,12 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 const MapComponent = ({ className = '' }) => {
   const mapContainer = useRef(null);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/outdoors-v12');
-  const { windowSize, actions } = useTrackBrowser();
+  const { actions, mapReady } = useTrackBrowser();
   const { 
     initializeMap, 
     cleanupMap, 
     updateMapStyle,
-    mapInstance 
+    getMapInstance
   } = useMapOperations();
 
   // Initialize map
@@ -47,14 +47,15 @@ const MapComponent = ({ className = '' }) => {
       actions.setWindowSize(newSize);
       
       // Resize map when window size changes
-      if (mapInstance) {
+      const mapInstance = getMapInstance();
+      if (mapInstance && mapReady) {
         mapInstance.resize();
       }
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [mapInstance, actions]);
+  }, [getMapInstance, mapReady, actions]);
 
   // Update map style when changed
   useEffect(() => {
@@ -65,8 +66,6 @@ const MapComponent = ({ className = '' }) => {
   const mapStyleOptions = [
     { value: 'mapbox://styles/mapbox/outdoors-v12', label: 'Outdoors' },
     { value: 'mapbox://styles/mapbox/satellite-v9', label: 'Satellite' },
-    { value: 'mapbox://styles/mapbox/streets-v12', label: 'Streets' },
-    { value: 'mapbox://styles/mapbox/light-v11', label: 'Light' },
     { value: 'mapbox://styles/mapbox/dark-v11', label: 'Dark' },
   ];
 
@@ -91,7 +90,7 @@ const MapComponent = ({ className = '' }) => {
       </div>
 
       {/* Loading Overlay */}
-      {!mapInstance && (
+      {!mapReady && (
         <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto mb-2"></div>

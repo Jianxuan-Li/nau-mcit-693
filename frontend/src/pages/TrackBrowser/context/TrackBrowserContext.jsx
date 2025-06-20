@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo, useRef, useState } from 'react';
 
 const TrackBrowserContext = createContext();
 
@@ -12,7 +12,6 @@ const ACTIONS = {
   SET_DIFFICULTY_FILTER: 'SET_DIFFICULTY_FILTER',
   SET_CURRENT_PAGE: 'SET_CURRENT_PAGE',
   SET_TOTAL_PAGES: 'SET_TOTAL_PAGES',
-  SET_MAP_INSTANCE: 'SET_MAP_INSTANCE',
   
   // GPX loading actions
   ADD_LOADED_GPX: 'ADD_LOADED_GPX',
@@ -45,9 +44,6 @@ const initialState = {
   loadedGpxData: new Map(),
   loadingGpx: new Set(),
   gpxErrors: new Map(),
-  
-  // Map
-  mapInstance: null,
   
   // UI state
   loading: true,
@@ -84,9 +80,6 @@ function trackBrowserReducer(state, action) {
       
     case ACTIONS.SET_TOTAL_PAGES:
       return { ...state, totalPages: action.payload };
-      
-    case ACTIONS.SET_MAP_INSTANCE:
-      return { ...state, mapInstance: action.payload };
       
     case ACTIONS.ADD_LOADED_GPX: {
       const newLoadedGpxData = new Map(state.loadedGpxData);
@@ -138,6 +131,49 @@ function trackBrowserReducer(state, action) {
 export function TrackBrowserProvider({ children }) {
   const [state, dispatch] = useReducer(trackBrowserReducer, initialState);
   
+  // Map instance management
+  const mapRef = useRef(null);
+  const [mapReady, setMapReady] = useState(false);
+  
+  // Map instance functions
+  const setMapInstance = useCallback((mapInstance) => {
+    console.log('Setting map instance in context:', mapInstance ? 'valid' : 'null');
+    mapRef.current = mapInstance;
+    
+    if (mapInstance) {
+      // Set ready state when map loads
+      if (mapInstance.isStyleLoaded()) {
+        console.log('Map style already loaded, setting ready');
+        setMapReady(true);
+      } else {
+        console.log('Waiting for map style to load');
+        const handleStyleData = () => {
+          console.log('Map style loaded, setting ready');
+          setMapReady(true);
+          mapInstance.off('styledata', handleStyleData);
+        };
+        mapInstance.on('styledata', handleStyleData);
+      }
+    } else {
+      setMapReady(false);
+    }
+  }, []);
+
+  const getMapInstance = useCallback(() => {
+    return mapRef.current;
+  }, []);
+
+  const clearMapInstance = useCallback(() => {
+    console.log('Clearing map instance in context');
+    mapRef.current = null;
+    setMapReady(false);
+  }, []);
+
+  const isMapReady = useCallback(() => {
+    const map = mapRef.current;
+    return map && map.isStyleLoaded() && mapReady;
+  }, [mapReady]);
+
   // Action creators
   const actions = useMemo(() => ({
     setLoading: (loading) => {
@@ -170,10 +206,6 @@ export function TrackBrowserProvider({ children }) {
     
     setTotalPages: (pages) => {
       dispatch({ type: ACTIONS.SET_TOTAL_PAGES, payload: pages });
-    },
-    
-    setMapInstance: (mapInstance) => {
-      dispatch({ type: ACTIONS.SET_MAP_INSTANCE, payload: mapInstance });
     },
     
     // GPX actions
@@ -216,7 +248,13 @@ export function TrackBrowserProvider({ children }) {
   const value = useMemo(() => ({
     ...state,
     actions,
-  }), [state, actions]);
+    // Map instance functions
+    setMapInstance,
+    getMapInstance,
+    clearMapInstance,
+    isMapReady,
+    mapReady,
+  }), [state, actions, setMapInstance, getMapInstance, clearMapInstance, isMapReady, mapReady]);
   
   return (
     <TrackBrowserContext.Provider value={value}>

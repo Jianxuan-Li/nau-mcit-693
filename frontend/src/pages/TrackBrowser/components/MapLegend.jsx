@@ -44,11 +44,11 @@ const MapLegend = ({ className = '' }) => {
             </div>
             <div className="flex items-center">
               <div className="w-4 h-0.5 bg-blue-500 mr-2"></div>
-              <span className="text-xs text-gray-600">Selected route</span>
+              <span className="text-xs text-gray-600">Selected route (simplified)</span>
             </div>
             <div className="flex items-center">
               <div className="w-4 h-0.5 bg-red-500 mr-2"></div>
-              <span className="text-xs text-gray-600">Full GPX track</span>
+              <span className="text-xs text-gray-600">Full GPX track (replaces simplified)</span>
             </div>
           </div>
 
@@ -125,7 +125,7 @@ const MapLegend = ({ className = '' }) => {
           <div className="border-t pt-3">
             <div className="text-xs font-medium text-gray-700 mb-1">Controls:</div>
             <div className="text-xs text-gray-600 space-y-1">
-              <div>• Click track to select</div>
+              <div>• Click track to select & load full GPX</div>
               <div>• Use &quot;Fit All&quot; to view all tracks</div>
               <div>• Zoom with mouse wheel</div>
               <div>• Pan by dragging</div>

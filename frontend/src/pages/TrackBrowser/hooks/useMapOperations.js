@@ -4,26 +4,50 @@ import { useTrackBrowser } from '../context/TrackBrowserContext';
 
 export function useMapOperations() {
   const {
-    mapInstance,
     tracks,
     selectedTrack,
     loadedGpxData,
-    actions
+    actions,
+    setMapInstance,
+    getMapInstance,
+    clearMapInstance,
+    mapReady,
+    isMapReady
   } = useTrackBrowser();
+  
+  // Debug logs
+  console.log('useMapOperations render:', {
+    hasMapInstance: !!getMapInstance(),
+    mapReady,
+    tracksCount: tracks.length,
+    selectedTrack: selectedTrack?.name
+  });
 
   // Update map tracks layers
   const updateMapTracks = useCallback(() => {
-    if (!mapInstance || !mapInstance.isStyleLoaded()) return;
+    const currentMap = getMapInstance();
+    if (!currentMap || !currentMap.isStyleLoaded()) return;
+
+    // console.log('Updating map tracks:', {
+    //   tracksCount: tracks.length,
+    //   selectedTrack: selectedTrack?.name,
+    //   loadedGpxCount: loadedGpxData.size,
+    //   loadedGpxTracks: Array.from(loadedGpxData.keys())
+    // });
 
     // Clear all existing track layers and sources
-    const style = mapInstance.getStyle();
+    const style = currentMap.getStyle();
     if (style && style.layers) {
       const trackLayers = style.layers.filter(layer => 
         layer.id.startsWith('track-layer-') || layer.id.startsWith('gpx-layer-')
       );
       trackLayers.forEach(layer => {
-        if (mapInstance.getLayer(layer.id)) {
-          mapInstance.removeLayer(layer.id);
+        if (currentMap.getLayer(layer.id)) {
+          // Remove all event listeners for this layer
+          currentMap.off('mouseenter', layer.id);
+          currentMap.off('mouseleave', layer.id);
+          currentMap.off('click', layer.id);
+          currentMap.removeLayer(layer.id);
         }
       });
     }
@@ -31,8 +55,8 @@ export function useMapOperations() {
     if (style && style.sources) {
       Object.keys(style.sources).forEach(sourceId => {
         if (sourceId.startsWith('track-') || sourceId.startsWith('gpx-')) {
-          if (mapInstance.getSource(sourceId)) {
-            mapInstance.removeSource(sourceId);
+          if (currentMap.getSource(sourceId)) {
+            currentMap.removeSource(sourceId);
           }
         }
       });
@@ -48,9 +72,12 @@ export function useMapOperations() {
       const layerId = `track-layer-${track.id}`;
       const isSelected = track.id === selectedTrack?.id;
       const hasGpxData = loadedGpxData.has(track.id);
+      
+      // Hide simplified path if track is selected and has GPX data
+      const shouldHideSimplified = isSelected && hasGpxData;
 
       // Add source
-      mapInstance.addSource(sourceId, {
+      currentMap.addSource(sourceId, {
         type: 'geojson',
         data: {
           type: 'Feature',
@@ -65,40 +92,43 @@ export function useMapOperations() {
       });
 
       // Add layer
-      mapInstance.addLayer({
+      currentMap.addLayer({
         id: layerId,
         type: 'line',
         source: sourceId,
         layout: {
           'line-join': 'round',
-          'line-cap': 'round'
+          'line-cap': 'round',
+          'visibility': shouldHideSimplified ? 'none' : 'visible'
         },
         paint: {
           'line-color': isSelected ? '#2563eb' : '#10b981',
-          'line-width': hasGpxData && isSelected ? 2 : (isSelected ? 5 : 3),
-          'line-opacity': hasGpxData && isSelected ? 0.6 : (isSelected ? 1 : 0.8)
+          'line-width': isSelected ? 4 : 3,
+          'line-opacity': isSelected ? 1 : 0.8
         }
       });
 
-      // Add hover effects
-      mapInstance.on('mouseenter', layerId, () => {
-        mapInstance.getCanvas().style.cursor = 'pointer';
-        if (!isSelected) {
-          mapInstance.setPaintProperty(layerId, 'line-width', 4);
-          mapInstance.setPaintProperty(layerId, 'line-opacity', 1);
-        }
-      });
+      // Add hover effects (only if visible)
+      if (!shouldHideSimplified) {
+        currentMap.on('mouseenter', layerId, () => {
+          currentMap.getCanvas().style.cursor = 'pointer';
+          if (!isSelected) {
+            currentMap.setPaintProperty(layerId, 'line-width', 4);
+            currentMap.setPaintProperty(layerId, 'line-opacity', 1);
+          }
+        });
 
-      mapInstance.on('mouseleave', layerId, () => {
-        mapInstance.getCanvas().style.cursor = '';
-        if (!isSelected) {
-          mapInstance.setPaintProperty(layerId, 'line-width', 3);
-          mapInstance.setPaintProperty(layerId, 'line-opacity', 0.8);
-        }
-      });
+        currentMap.on('mouseleave', layerId, () => {
+          currentMap.getCanvas().style.cursor = '';
+          if (!isSelected) {
+            currentMap.setPaintProperty(layerId, 'line-width', 3);
+            currentMap.setPaintProperty(layerId, 'line-opacity', 0.8);
+          }
+        });
+      }
 
-      // Add click handler
-      mapInstance.on('click', layerId, () => {
+      // Add click handler (always available)
+      currentMap.on('click', layerId, () => {
         actions.setSelectedTrack(track);
       });
     });
@@ -109,42 +139,53 @@ export function useMapOperations() {
       const gpxSourceId = `gpx-${selectedTrack.id}`;
       const gpxLayerId = `gpx-layer-${selectedTrack.id}`;
 
-      mapInstance.addSource(gpxSourceId, {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {
-            id: selectedTrack.id,
-            name: selectedTrack.name,
-            type: 'full_gpx'
-          },
-          geometry: {
-            type: 'LineString',
-            coordinates: gpxData.coordinates
-          }
-        }
-      });
+      console.log('Adding GPX layer for selected track:', selectedTrack.name, 'with', gpxData.coordinates.length, 'points');
 
-      mapInstance.addLayer({
-        id: gpxLayerId,
-        type: 'line',
-        source: gpxSourceId,
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#ef4444', // Red color for full GPX track
-          'line-width': 3,
-          'line-opacity': 0.9
-        }
-      });
+      try {
+        currentMap.addSource(gpxSourceId, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {
+              id: selectedTrack.id,
+              name: selectedTrack.name,
+              type: 'full_gpx'
+            },
+            geometry: {
+              type: 'LineString',
+              coordinates: gpxData.coordinates
+            }
+          }
+        });
+
+        currentMap.addLayer({
+          id: gpxLayerId,
+          type: 'line',
+          source: gpxSourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#ef4444', // Red color for full GPX track
+            'line-width': 3,
+            'line-opacity': 0.9
+          }
+        });
+
+        console.log('✓ GPX layer added successfully for track:', selectedTrack.name);
+      } catch (error) {
+        console.error('Error adding GPX layer:', error);
+      }
+    } else if (selectedTrack) {
+      console.log('No GPX data available for selected track:', selectedTrack.name);
     }
-  }, [mapInstance, tracks, selectedTrack, loadedGpxData, actions.setSelectedTrack]);
+  }, [getMapInstance, tracks, selectedTrack, loadedGpxData, actions.setSelectedTrack]);
 
   // Animate to selected track
   const animateToTrack = useCallback((track) => {
-    if (!mapInstance || !track) return;
+    const currentMap = getMapInstance();
+    if (!currentMap || !track) return;
     
     try {
       const bbox = track.boundingBox;
@@ -160,7 +201,7 @@ export function useMapOperations() {
         ];
         
         // Animate to fit the bounds with padding
-        mapInstance.fitBounds(bounds, {
+        currentMap.fitBounds(bounds, {
           padding: { top: 50, bottom: 50, left: 50, right: 50 },
           duration: 1500,
           essential: true
@@ -168,7 +209,7 @@ export function useMapOperations() {
       } else if (track.centerPoint && track.centerPoint.coordinates) {
         // Fallback to center point if bounding box is not available
         const [lng, lat] = track.centerPoint.coordinates;
-        mapInstance.flyTo({
+        currentMap.flyTo({
           center: [lng, lat],
           zoom: 14,
           duration: 1500,
@@ -181,7 +222,7 @@ export function useMapOperations() {
       if (track.centerPoint && track.centerPoint.coordinates) {
         try {
           const [lng, lat] = track.centerPoint.coordinates;
-          mapInstance.flyTo({
+          currentMap.flyTo({
             center: [lng, lat],
             zoom: 14,
             duration: 1500,
@@ -192,11 +233,12 @@ export function useMapOperations() {
         }
       }
     }
-  }, [mapInstance]);
+  }, [getMapInstance]);
 
   // Fit all tracks in view
   const fitAllTracks = useCallback(() => {
-    if (!mapInstance || tracks.length === 0) return;
+    const currentMap = getMapInstance();
+    if (!currentMap || tracks.length === 0) return;
     
     const validTracks = tracks.filter(track => track.boundingBox && track.boundingBox.coordinates);
     if (validTracks.length === 0) return;
@@ -218,7 +260,7 @@ export function useMapOperations() {
       
       const bounds = [[minLng, minLat], [maxLng, maxLat]];
       
-      mapInstance.fitBounds(bounds, {
+      currentMap.fitBounds(bounds, {
         padding: { top: 50, bottom: 50, left: 50, right: 50 },
         duration: 1500,
         essential: true
@@ -226,7 +268,7 @@ export function useMapOperations() {
     } catch (error) {
       console.warn('Error fitting all tracks:', error);
     }
-  }, [mapInstance, tracks]);
+  }, [getMapInstance, tracks]);
 
   // Initialize map
   const initializeMap = useCallback((container, options = {}) => {
@@ -259,35 +301,49 @@ export function useMapOperations() {
       'top-right'
     );
 
-    // Store map instance in context
-    actions.setMapInstance(map);
+    // Store map instance in ref
+    setMapInstance(map);
 
     return map;
-  }, [actions.setMapInstance]);
+  }, [setMapInstance]);
 
   // Cleanup map
   const cleanupMap = useCallback(() => {
-    if (mapInstance) {
-      mapInstance.remove();
-      actions.setMapInstance(null);
+    const currentMap = getMapInstance();
+    if (currentMap) {
+      currentMap.remove();
+      clearMapInstance();
     }
-  }, [mapInstance, actions.setMapInstance]);
+  }, [getMapInstance, clearMapInstance]);
 
   // Update map style
   const updateMapStyle = useCallback((style) => {
-    if (mapInstance) {
-      mapInstance.setStyle(style);
+    const currentMap = getMapInstance();
+    if (currentMap) {
+      currentMap.setStyle(style);
     }
-  }, [mapInstance]);
+  }, [getMapInstance]);
 
   // Auto-update tracks when dependencies change
   useEffect(() => {
     updateMapTracks();
-  }, [mapInstance, tracks, selectedTrack, loadedGpxData]);
+  }, [updateMapTracks, tracks, selectedTrack, loadedGpxData.size, selectedTrack?.id]);
+
+  // Force update when GPX data is loaded for currently selected track
+  useEffect(() => {
+    if (selectedTrack && loadedGpxData.has(selectedTrack.id) && getMapInstance()) {
+      console.log('GPX data detected for selected track, forcing map update:', selectedTrack.name);
+      // Small delay to ensure React state has been updated
+      setTimeout(() => {
+        updateMapTracks();
+      }, 50);
+    }
+  }, [loadedGpxData.size, selectedTrack?.id, getMapInstance, updateMapTracks]);
 
   // Auto-animate to selected track
   useEffect(() => {
-    if (!mapInstance || !selectedTrack) return;
+    const currentMap = getMapInstance();
+    if (!currentMap || !selectedTrack) return;
     
     try {
       const bbox = selectedTrack.boundingBox;
@@ -303,7 +359,7 @@ export function useMapOperations() {
         ];
         
         // Animate to fit the bounds with padding
-        mapInstance.fitBounds(bounds, {
+        currentMap.fitBounds(bounds, {
           padding: { top: 50, bottom: 50, left: 50, right: 50 },
           duration: 1500,
           essential: true
@@ -311,7 +367,7 @@ export function useMapOperations() {
       } else if (selectedTrack.centerPoint && selectedTrack.centerPoint.coordinates) {
         // Fallback to center point if bounding box is not available
         const [lng, lat] = selectedTrack.centerPoint.coordinates;
-        mapInstance.flyTo({
+        currentMap.flyTo({
           center: [lng, lat],
           zoom: 14,
           duration: 1500,
@@ -324,7 +380,7 @@ export function useMapOperations() {
       if (selectedTrack.centerPoint && selectedTrack.centerPoint.coordinates) {
         try {
           const [lng, lat] = selectedTrack.centerPoint.coordinates;
-          mapInstance.flyTo({
+          currentMap.flyTo({
             center: [lng, lat],
             zoom: 14,
             duration: 1500,
@@ -335,7 +391,7 @@ export function useMapOperations() {
         }
       }
     }
-  }, [selectedTrack, mapInstance]);
+  }, [selectedTrack, getMapInstance]);
 
   return {
     // Core functions
@@ -349,10 +405,10 @@ export function useMapOperations() {
     fitAllTracks,
     
     // State
-    mapInstance,
+    getMapInstance,
     
     // Helper functions
-    isMapReady: mapInstance && mapInstance.isStyleLoaded(),
+    isMapReady,
   };
 }
 
