@@ -13,7 +13,9 @@ import {
   getGPXError,
   animateMapToRoute,
   onBoundChange,
-  offBoundChange
+  offBoundChange,
+  hideSimplifiedPath,
+  showSimplifiedPath
 } from './MapInstance';
 import { convertRoutesToMarkerData, convertRoutesToPathData } from './utils/geoJsonUtils';
 
@@ -71,13 +73,23 @@ const SpatialTrackBrowserLayout = () => {
     try {
       // If same route is clicked, deselect it
       if (selectedRoute && selectedRoute.id === route.id) {
+        // Show the previously selected route's simplified path
+        showSimplifiedPath(selectedRoute.id);
         setSelectedRoute(null);
         clearGPXPath();
         return;
       }
 
+      // If there was a previously selected route, show its simplified path
+      if (selectedRoute) {
+        showSimplifiedPath(selectedRoute.id);
+      }
+
       // Select new route
       setSelectedRoute(route);
+      
+      // Hide the newly selected route's simplified path
+      hideSimplifiedPath(route.id);
       
       // Animate map to the selected route with a slight delay to ensure selection state is updated
       setTimeout(() => {

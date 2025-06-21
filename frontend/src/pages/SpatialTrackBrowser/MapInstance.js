@@ -253,6 +253,26 @@ export const setPathZoomThreshold = (threshold) => {
   simplifiedPathManager.setZoomThreshold(threshold);
 };
 
+// Hide a specific simplified path
+export const hideSimplifiedPath = (routeId) => {
+  if (!mapInstance) {
+    console.warn('No map instance available for hiding path');
+    return;
+  }
+  
+  simplifiedPathManager.hidePath(routeId, mapInstance);
+};
+
+// Show a specific simplified path
+export const showSimplifiedPath = (routeId) => {
+  if (!mapInstance) {
+    console.warn('No map instance available for showing path');
+    return;
+  }
+  
+  simplifiedPathManager.showPath(routeId, mapInstance);
+};
+
 // Load and show GPX for a selected route
 export const loadAndShowGPX = async (routeId, routeName = null) => {
   if (!mapInstance) {
@@ -394,6 +414,8 @@ export default {
   getPathCount,
   arePathsVisible,
   setPathZoomThreshold,
+  hideSimplifiedPath,
+  showSimplifiedPath,
   loadAndShowGPX,
   clearGPXPath,
   getGPXData,

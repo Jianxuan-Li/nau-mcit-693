@@ -225,6 +225,46 @@ class SimplifiedPathManager {
   getZoomThreshold() {
     return this.zoomThreshold;
   }
+
+  // Hide a specific path
+  hidePath(routeId, mapInstance) {
+    const pathInfo = this.paths.get(routeId);
+    if (!pathInfo || !mapInstance) return;
+
+    try {
+      if (mapInstance.getLayer(pathInfo.layerName)) {
+        mapInstance.setLayoutProperty(
+          pathInfo.layerName,
+          'visibility',
+          'none'
+        );
+        console.log(`Hidden simplified path for route ${routeId}`);
+      }
+    } catch (error) {
+      console.error(`Failed to hide path for route ${routeId}:`, error);
+    }
+  }
+
+  // Show a specific path
+  showPath(routeId, mapInstance) {
+    const pathInfo = this.paths.get(routeId);
+    if (!pathInfo || !mapInstance) return;
+
+    try {
+      if (mapInstance.getLayer(pathInfo.layerName)) {
+        // Only show if global visibility is enabled and zoom is appropriate
+        const shouldShow = this.isVisible;
+        mapInstance.setLayoutProperty(
+          pathInfo.layerName,
+          'visibility',
+          shouldShow ? 'visible' : 'none'
+        );
+        console.log(`${shouldShow ? 'Shown' : 'Kept hidden'} simplified path for route ${routeId}`);
+      }
+    } catch (error) {
+      console.error(`Failed to show path for route ${routeId}:`, error);
+    }
+  }
 }
 
 // Create singleton instance
