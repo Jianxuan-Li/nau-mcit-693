@@ -26,9 +26,15 @@ type Route struct {
 	Difficulty         DifficultyLevel `json:"difficulty" db:"difficulty"`
 	SceneryDescription string          `json:"scenery_description,omitempty" db:"scenery_description"`
 	AdditionalNotes    string          `json:"additional_notes,omitempty" db:"additional_notes"`
-	TotalDistance      float64         `json:"total_distance" db:"total_distance"`           // in kilometers
 	MaxElevationGain   float64         `json:"max_elevation_gain" db:"max_elevation_gain"`   // in meters
-	EstimatedDuration  int             `json:"estimated_duration" db:"estimated_duration"`   // in minutes
+	EstimatedDuration  *int            `json:"estimated_duration,omitempty" db:"estimated_duration"` // calculated from GPX in minutes
+	AverageSpeed       *float64        `json:"average_speed,omitempty" db:"average_speed"`   // calculated from GPX in km/h
+	StartTime          *time.Time      `json:"start_time,omitempty" db:"start_time"`         // extracted from GPX
+	EndTime            *time.Time      `json:"end_time,omitempty" db:"end_time"`             // extracted from GPX
+	
+	// Social features
+	LikeCount          int             `json:"like_count" db:"like_count"`                   // number of likes
+	SaveCount          int             `json:"save_count" db:"save_count"`                   // number of saves
 	
 	// GPX file information
 	Filename           string          `json:"filename" db:"filename"`
@@ -41,7 +47,7 @@ type Route struct {
 	SimplifiedPath     *string         `json:"simplified_path,omitempty" db:"simplified_path"`  // WKT format linestring
 	RouteLength        *float64        `json:"route_length_km,omitempty" db:"route_length_km"`  // Calculated route length in km
 	BoundingBox        *string         `json:"bounding_box,omitempty" db:"bounding_box"`        // WKT format bounding box polygon
-	TempGeoJSON        *string         `json:"-" db:"temp_geojson"`                             // Temporary GeoJSON (not exported)
+	OriginalGeometry   *string         `json:"-" db:"original_geometry"`                        // Original geometry in PostGIS format (cold storage)
 	
 	// Timestamps
 	CreatedAt          time.Time       `json:"created_at" db:"created_at"`
@@ -55,9 +61,7 @@ type RouteCreateRequest struct {
 	Difficulty         DifficultyLevel `json:"difficulty" binding:"required,oneof=easy moderate hard expert"`
 	SceneryDescription string          `json:"scenery_description,omitempty" binding:"max=1000"`
 	AdditionalNotes    string          `json:"additional_notes,omitempty" binding:"max=2000"`
-	TotalDistance      float64         `json:"total_distance" binding:"required,min=0"`
 	MaxElevationGain   float64         `json:"max_elevation_gain" binding:"min=0"`
-	EstimatedDuration  int             `json:"estimated_duration" binding:"required,min=0"`
 	
 	// GPX file will be provided via multipart form upload
 }
@@ -68,9 +72,7 @@ type RouteUpdateRequest struct {
 	Difficulty         *DifficultyLevel `json:"difficulty,omitempty" binding:"omitempty,oneof=easy moderate hard expert"`
 	SceneryDescription *string          `json:"scenery_description,omitempty" binding:"omitempty,max=1000"`
 	AdditionalNotes    *string          `json:"additional_notes,omitempty" binding:"omitempty,max=2000"`
-	TotalDistance      *float64         `json:"total_distance,omitempty" binding:"omitempty,min=0"`
 	MaxElevationGain   *float64         `json:"max_elevation_gain,omitempty" binding:"omitempty,min=0"`
-	EstimatedDuration  *int             `json:"estimated_duration,omitempty" binding:"omitempty,min=0"`
 }
 
 // RouteResponse represents the response payload for route operations
@@ -81,9 +83,13 @@ type RouteResponse struct {
 	Difficulty         DifficultyLevel `json:"difficulty"`
 	SceneryDescription string          `json:"scenery_description,omitempty"`
 	AdditionalNotes    string          `json:"additional_notes,omitempty"`
-	TotalDistance      float64         `json:"total_distance"`
 	MaxElevationGain   float64         `json:"max_elevation_gain"`
-	EstimatedDuration  int             `json:"estimated_duration"`
+	EstimatedDuration  *int            `json:"estimated_duration,omitempty"`
+	AverageSpeed       *float64        `json:"average_speed,omitempty"`
+	StartTime          *time.Time      `json:"start_time,omitempty"`
+	EndTime            *time.Time      `json:"end_time,omitempty"`
+	LikeCount          int             `json:"like_count"`
+	SaveCount          int             `json:"save_count"`
 	Filename           string          `json:"filename"`
 	FileSize           int64           `json:"file_size"`
 	CenterPoint        *string         `json:"center_point,omitempty"`
@@ -117,9 +123,13 @@ func (r *Route) ToResponse() RouteResponse {
 		Difficulty:         r.Difficulty,
 		SceneryDescription: r.SceneryDescription,
 		AdditionalNotes:    r.AdditionalNotes,
-		TotalDistance:      r.TotalDistance,
 		MaxElevationGain:   r.MaxElevationGain,
 		EstimatedDuration:  r.EstimatedDuration,
+		AverageSpeed:       r.AverageSpeed,
+		StartTime:          r.StartTime,
+		EndTime:            r.EndTime,
+		LikeCount:          r.LikeCount,
+		SaveCount:          r.SaveCount,
 		Filename:           r.Filename,
 		FileSize:           r.FileSize,
 		CenterPoint:        r.CenterPoint,

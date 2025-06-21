@@ -111,17 +111,7 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
-	// Convert GPX to GeoJSON for PostGIS processing
-	log.Printf("INFO: Converting GPX to GeoJSON for route: %s", filename)
-	geoJSONStr, err := utils.ProcessGPXToGeoJSON(content)
-	if err != nil {
-		log.Printf("ERROR: Failed to convert GPX to GeoJSON for user %s, file %s: %v", userID.(string), filename, err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Failed to process GPX file: " + err.Error(),
-		})
-		return
-	}
-	log.Printf("INFO: Successfully converted GPX to GeoJSON for route: %s", filename)
+	log.Printf("INFO: Successfully validated GPX file: %s", filename)
 
 	// Parse route metadata from form
 	var routeReq models.RouteCreateRequest
@@ -157,9 +147,9 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		Difficulty:         routeReq.Difficulty,
 		SceneryDescription: routeReq.SceneryDescription,
 		AdditionalNotes:    routeReq.AdditionalNotes,
-		TotalDistance:      routeReq.TotalDistance,
 		MaxElevationGain:   routeReq.MaxElevationGain,
-		EstimatedDuration:  routeReq.EstimatedDuration,
+		LikeCount:          0, // Initialize to 0
+		SaveCount:          0, // Initialize to 0
 		Filename:           filename,
 		R2ObjectKey:        objectKey,
 		FileSize:           int64(len(content)),
@@ -167,14 +157,14 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		UpdatedAt:          time.Now(),
 	}
 
-	// Insert into database (without geographical features - they'll be calculated after)
+	// Insert into database (calculated features will be added after GPX processing)
 	query := `
 		INSERT INTO routes (
 			id, user_id, name, difficulty, scenery_description, additional_notes,
-			total_distance, max_elevation_gain, estimated_duration,
+			max_elevation_gain, estimated_duration, like_count, save_count,
 			filename, r2_object_key, file_size, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 	`
 
 	ctx := context.Background()
@@ -182,7 +172,7 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 	_, err = h.db.Exec(ctx, query,
 		route.ID, route.UserID, route.Name, route.Difficulty,
 		route.SceneryDescription, route.AdditionalNotes,
-		route.TotalDistance, route.MaxElevationGain, route.EstimatedDuration,
+		route.MaxElevationGain, nil, route.LikeCount, route.SaveCount,
 		route.Filename, route.R2ObjectKey, route.FileSize,
 		route.CreatedAt, route.UpdatedAt,
 	)
@@ -199,22 +189,46 @@ func (h *RouteHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
-	// Step 3: Process geographical features using PostGIS
-	log.Printf("INFO: Processing geographical features with PostGIS for route: %s", routeID.String())
-	geoFeatures, err := h.geoService.ProcessGeoJSONWithPostGIS(ctx, routeID, geoJSONStr)
+	// Step 3: Process GPX with extended features (geographical + timing)
+	log.Printf("INFO: Processing extended features (geo + timing) for route: %s", routeID.String())
+	extendedFeatures, err := h.geoService.ProcessGPXWithExtendedFeatures(ctx, routeID, content)
 	if err != nil {
-		log.Printf("ERROR: Failed to process geographical features for route %s: %v", routeID.String(), err)
+		log.Printf("ERROR: Failed to process extended features for route %s: %v", routeID.String(), err)
 		// Don't fail the entire operation, but log the error
-		// The route is already created, user can still access it without geo features
-		log.Printf("WARN: Route %s created without geographical features due to processing error", routeID.String())
+		// The route is already created, user can still access it without calculated features
+		log.Printf("WARN: Route %s created without extended features due to processing error", routeID.String())
 	} else {
-		log.Printf("INFO: Successfully processed geographical features for route: %s", routeID.String())
+		log.Printf("INFO: Successfully processed extended features for route: %s", routeID.String())
+		
+		// Update database with all extended features (geography + timing)
+		err = h.geoService.UpdateRouteWithExtendedFeatures(ctx, routeID, extendedFeatures)
+		if err != nil {
+			log.Printf("ERROR: Failed to update database with extended features for route %s: %v", routeID.String(), err)
+		} else {
+			log.Printf("INFO: Successfully updated database with extended features for route: %s", routeID.String())
+		}
+		
 		// Update the route object with calculated features for response
-		route.CenterPoint = geoFeatures.CenterPoint
-		route.ConvexHull = geoFeatures.ConvexHull
-		route.SimplifiedPath = geoFeatures.SimplifiedPath
-		route.RouteLength = geoFeatures.RouteLength
-		route.BoundingBox = geoFeatures.BoundingBox
+		route.CenterPoint = extendedFeatures.CenterPoint
+		route.ConvexHull = extendedFeatures.ConvexHull
+		route.SimplifiedPath = extendedFeatures.SimplifiedPath
+		route.RouteLength = extendedFeatures.RouteLength
+		route.BoundingBox = extendedFeatures.BoundingBox
+		route.EstimatedDuration = extendedFeatures.Duration
+		route.AverageSpeed = extendedFeatures.AverageSpeed
+		if extendedFeatures.MaxElevationGain != nil {
+			route.MaxElevationGain = *extendedFeatures.MaxElevationGain
+		}
+		if extendedFeatures.StartTime != nil {
+			if startTime, err := time.Parse(time.RFC3339, *extendedFeatures.StartTime); err == nil {
+				route.StartTime = &startTime
+			}
+		}
+		if extendedFeatures.EndTime != nil {
+			if endTime, err := time.Parse(time.RFC3339, *extendedFeatures.EndTime); err == nil {
+				route.EndTime = &endTime
+			}
+		}
 	}
 
 	response := route.ToResponse()
@@ -240,7 +254,8 @@ func (h *RouteHandler) GetUserRoutes(c *gin.Context) {
 
 	query := `
 		SELECT id, user_id, name, difficulty, scenery_description, additional_notes,
-		       total_distance, max_elevation_gain, estimated_duration,
+		       max_elevation_gain, estimated_duration,
+		       average_speed, start_time, end_time, like_count, save_count,
 		       filename, file_size, 
 		       ST_AsText(center_point) as center_point,
 		       ST_AsText(convex_hull) as convex_hull,
@@ -271,7 +286,9 @@ func (h *RouteHandler) GetUserRoutes(c *gin.Context) {
 		err := rows.Scan(
 			&route.ID, &route.UserID, &route.Name, &route.Difficulty,
 			&route.SceneryDescription, &route.AdditionalNotes,
-			&route.TotalDistance, &route.MaxElevationGain, &route.EstimatedDuration,
+			&route.MaxElevationGain, &route.EstimatedDuration,
+			&route.AverageSpeed, &route.StartTime, &route.EndTime,
+			&route.LikeCount, &route.SaveCount,
 			&route.Filename, &route.FileSize, 
 			&route.CenterPoint, &route.ConvexHull, &route.SimplifiedPath,
 			&route.RouteLength, &route.BoundingBox,
@@ -318,7 +335,8 @@ func (h *RouteHandler) GetRoute(c *gin.Context) {
 
 	query := `
 		SELECT id, user_id, name, difficulty, scenery_description, additional_notes,
-		       total_distance, max_elevation_gain, estimated_duration,
+		       max_elevation_gain, estimated_duration,
+		       average_speed, start_time, end_time, like_count, save_count,
 		       filename, r2_object_key, file_size,
 		       ST_AsText(center_point) as center_point,
 		       ST_AsText(convex_hull) as convex_hull,
@@ -336,7 +354,9 @@ func (h *RouteHandler) GetRoute(c *gin.Context) {
 	err := h.db.QueryRow(ctx, query, routeID, userID.(string)).Scan(
 		&route.ID, &route.UserID, &route.Name, &route.Difficulty,
 		&route.SceneryDescription, &route.AdditionalNotes,
-		&route.TotalDistance, &route.MaxElevationGain, &route.EstimatedDuration,
+		&route.MaxElevationGain, &route.EstimatedDuration,
+		&route.AverageSpeed, &route.StartTime, &route.EndTime,
+		&route.LikeCount, &route.SaveCount,
 		&route.Filename, &route.R2ObjectKey, &route.FileSize,
 		&route.CenterPoint, &route.ConvexHull, &route.SimplifiedPath,
 		&route.RouteLength, &route.BoundingBox,
@@ -435,19 +455,9 @@ func (h *RouteHandler) UpdateRoute(c *gin.Context) {
 		args = append(args, *updateReq.AdditionalNotes)
 		argIndex++
 	}
-	if updateReq.TotalDistance != nil {
-		setParts = append(setParts, fmt.Sprintf("total_distance = $%d", argIndex))
-		args = append(args, *updateReq.TotalDistance)
-		argIndex++
-	}
 	if updateReq.MaxElevationGain != nil {
 		setParts = append(setParts, fmt.Sprintf("max_elevation_gain = $%d", argIndex))
 		args = append(args, *updateReq.MaxElevationGain)
-		argIndex++
-	}
-	if updateReq.EstimatedDuration != nil {
-		setParts = append(setParts, fmt.Sprintf("estimated_duration = $%d", argIndex))
-		args = append(args, *updateReq.EstimatedDuration)
 		argIndex++
 	}
 

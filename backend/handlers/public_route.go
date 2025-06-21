@@ -55,7 +55,8 @@ func (h *PublicRouteHandler) GetAllRoutes(c *gin.Context) {
 
 	query := `
 		SELECT r.id, r.user_id, r.name, r.difficulty, r.scenery_description, r.additional_notes,
-		       r.total_distance, r.max_elevation_gain, r.estimated_duration,
+		       r.max_elevation_gain, r.estimated_duration,
+		       r.average_speed, r.start_time, r.end_time, r.like_count, r.save_count,
 		       r.filename, r.file_size, r.created_at, r.updated_at,
 		       ST_AsGeoJSON(ST_Force2D(center_point)) as center_point_geojson,
 		       ST_AsGeoJSON(ST_Force2D(simplified_path)) as simplified_path_geojson,
@@ -126,7 +127,9 @@ func (h *PublicRouteHandler) GetAllRoutes(c *gin.Context) {
 		err := rows.Scan(
 			&route.ID, &route.UserID, &route.Name, &route.Difficulty,
 			&route.SceneryDescription, &route.AdditionalNotes,
-			&route.TotalDistance, &route.MaxElevationGain, &route.EstimatedDuration,
+			&route.MaxElevationGain, &route.EstimatedDuration,
+			&route.AverageSpeed, &route.StartTime, &route.EndTime,
+			&route.LikeCount, &route.SaveCount,
 			&route.Filename, &route.FileSize, &route.CreatedAt, &route.UpdatedAt,
 			&centerPointGeoJSON, &simplifiedPathGeoJSON,
 			&route.RouteLength, &boundingBoxGeoJSON,

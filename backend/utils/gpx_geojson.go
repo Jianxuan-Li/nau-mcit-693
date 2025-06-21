@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // GPX represents the GPX XML structure
@@ -243,4 +244,103 @@ func ExtractMainLineString(geoJSONStr string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no LineString geometry found in GeoJSON")
+}
+
+// GPXStats represents calculated statistics from GPX data
+type GPXStats struct {
+	StartTime         *time.Time `json:"start_time"`
+	EndTime           *time.Time `json:"end_time"`
+	Duration          *int       `json:"duration_minutes"`    // in minutes
+	AverageSpeed      *float64   `json:"average_speed_kmh"`   // in km/h
+	MaxElevationGain  *float64   `json:"max_elevation_gain"`  // in meters
+}
+
+// AnalyzeGPXTiming analyzes GPX data and extracts timing and elevation information
+func AnalyzeGPXTiming(content []byte) (*GPXStats, error) {
+	// Parse GPX
+	gpx, err := ParseGPX(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse GPX: %w", err)
+	}
+
+	stats := &GPXStats{}
+	
+	// Collect all points with timestamps
+	var allPoints []Waypoint
+	
+	// Get points from tracks
+	for _, track := range gpx.Tracks {
+		for _, segment := range track.Segments {
+			allPoints = append(allPoints, segment.Points...)
+		}
+	}
+	
+	// Get points from routes (if no tracks found)
+	if len(allPoints) == 0 {
+		for _, route := range gpx.Routes {
+			allPoints = append(allPoints, route.Points...)
+		}
+	}
+
+	if len(allPoints) == 0 {
+		return stats, nil // Return empty stats if no points found
+	}
+
+	// Extract timing information
+	var timestamps []time.Time
+	var minEle, maxEle *float64
+	
+	for _, point := range allPoints {
+		// Parse timestamps
+		if point.Time != nil && *point.Time != "" {
+			if t, err := time.Parse(time.RFC3339, *point.Time); err == nil {
+				timestamps = append(timestamps, t)
+			}
+		}
+		
+		// Track elevation for max elevation gain
+		if point.Ele != nil {
+			if minEle == nil || *point.Ele < *minEle {
+				minEle = point.Ele
+			}
+			if maxEle == nil || *point.Ele > *maxEle {
+				maxEle = point.Ele
+			}
+		}
+	}
+
+	// Calculate timing stats
+	if len(timestamps) >= 2 {
+		// Sort timestamps to get start and end
+		startTime := timestamps[0]
+		endTime := timestamps[0]
+		
+		for _, t := range timestamps {
+			if t.Before(startTime) {
+				startTime = t
+			}
+			if t.After(endTime) {
+				endTime = t
+			}
+		}
+		
+		stats.StartTime = &startTime
+		stats.EndTime = &endTime
+		
+		// Calculate duration in minutes
+		duration := int(endTime.Sub(startTime).Minutes())
+		if duration > 0 {
+			stats.Duration = &duration
+		}
+	}
+
+	// Calculate elevation gain
+	if minEle != nil && maxEle != nil {
+		elevationGain := *maxEle - *minEle
+		if elevationGain > 0 {
+			stats.MaxElevationGain = &elevationGain
+		}
+	}
+
+	return stats, nil
 }
