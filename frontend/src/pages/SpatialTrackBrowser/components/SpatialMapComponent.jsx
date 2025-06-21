@@ -12,29 +12,35 @@ const SpatialMapComponent = ({ className = '', onMapReady, loading = false, rout
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    // Initialize the singleton map instance
-    initMap(mapContainer.current, { style: mapStyle });
+    // Force a small delay to ensure DOM is fully rendered
+    const timer = setTimeout(() => {
+      if (mapContainer.current) {
+        // Initialize the singleton map instance
+        initMap(mapContainer.current, { style: mapStyle });
+        
+        // Set up load callback
+        onLoad(() => {
+          setMapReady(true);
+          // Call parent callback when map is ready
+          if (onMapReady) {
+            onMapReady();
+          }
+        });
 
-    // Set up load callback
-    onLoad(() => {
-      setMapReady(true);
-      // Call parent callback when map is ready
-      if (onMapReady) {
-        onMapReady();
+        // Check if map is already ready
+        if (isReady()) {
+          setMapReady(true);
+          // Call parent callback if map is already ready
+          if (onMapReady) {
+            onMapReady();
+          }
+        }
       }
-    });
-
-    // Check if map is already ready
-    if (isReady()) {
-      setMapReady(true);
-      // Call parent callback if map is already ready
-      if (onMapReady) {
-        onMapReady();
-      }
-    }
+    }, 100);
 
     // Cleanup function
     return () => {
+      clearTimeout(timer);
       // Note: We don't destroy the map here since it's a singleton
       // The map will be destroyed when the app unmounts or explicitly called
     };

@@ -43,6 +43,23 @@ const SpatialTrackCard = ({
     return `${elevation}m elevation`;
   };
 
+  // Format duration as estimated time
+  const formatDuration = (duration) => {
+    if (!duration) return null;
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+    if (hours > 0) {
+      return `Est. ${hours}h ${minutes}m`;
+    }
+    return `Est. ${minutes}m`;
+  };
+
+  // Format speed
+  const formatSpeed = (speed) => {
+    if (!speed) return null;
+    return `${speed.toFixed(1)} km/h`;
+  };
+
   return (
     <div
       className={`p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
@@ -61,6 +78,12 @@ const SpatialTrackCard = ({
       <div className="flex justify-between text-sm text-gray-600 mb-2">
         <span>{track.route_length_km}km</span>
         <span>{formatElevation(track.max_elevation_gain)}</span>
+      </div>
+      
+      {/* Duration and Speed */}
+      <div className="flex justify-between text-xs text-gray-500 mb-2">
+        <span>{formatDuration(track.estimated_duration) || 'Duration N/A'}</span>
+        <span>{formatSpeed(track.average_speed) || 'Speed N/A'}</span>
       </div>
       
       {/* User Information */}

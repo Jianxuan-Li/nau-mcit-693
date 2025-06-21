@@ -80,7 +80,17 @@ const setupBoundChangeListeners = () => {
 };
 
 export const initMap = (container, options = {}) => {
+  // If map exists but container is different, destroy and recreate
+  if (mapInstance && container) {
+    const currentContainer = mapInstance.getContainer();
+    if (currentContainer !== container) {
+      console.log('MapInstance: Container changed, recreating map instance');
+      destroyMap();
+    }
+  }
+  
   if (!mapInstance && container) {
+    console.log('MapInstance: Creating new map instance');
     const config = { ...DEFAULT_CONFIG, ...options, container };
     
     mapInstance = new mapboxgl.Map(config);

@@ -119,9 +119,14 @@ function Dashboard() {
     const hours = Math.floor(duration / 60);
     const minutes = duration % 60;
     if (hours > 0) {
-      return `${hours}h ${minutes}m`;
+      return `Est. ${hours}h ${minutes}m`;
     }
-    return `${minutes}m`;
+    return `Est. ${minutes}m`;
+  };
+
+  const formatSpeed = (speed) => {
+    if (!speed) return 'N/A';
+    return `${speed.toFixed(1)} km/h`;
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -234,6 +239,9 @@ function Dashboard() {
                       Duration
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Avg Speed
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Uploaded
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -262,10 +270,13 @@ function Dashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDistance(route.total_distance)}
+                        {formatDistance(route.route_length_km)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDuration(route.estimated_duration)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatSpeed(route.average_speed)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(route.created_at)}
