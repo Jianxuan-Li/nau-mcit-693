@@ -10,7 +10,8 @@ import {
   clearGPXPath,
   isGPXLoaded,
   isGPXLoading,
-  getGPXError
+  getGPXError,
+  animateMapToRoute
 } from './MapInstance';
 import { convertRoutesToMarkerData, convertRoutesToPathData } from './utils/geoJsonUtils';
 
@@ -64,10 +65,19 @@ const SpatialTrackBrowserLayout = () => {
       // Select new route
       setSelectedRoute(route);
       
+      // Animate map to the selected route with a slight delay to ensure selection state is updated
+      setTimeout(() => {
+        animateMapToRoute(route, {
+          duration: 1200, // Slightly faster animation
+          padding: { top: 60, bottom: 60, left: 60, right: 60 }, // More padding for better view
+          maxZoom: 15 // Don't zoom in too much
+        });
+      }, 100);
+      
       // Load and show GPX for the selected route
       await loadAndShowGPX(route.id, route.name);
       
-      console.log(`Route selected: ${route.name || route.id}`);
+      console.log(`Route selected and animated to: ${route.name || route.id}`);
     } catch (error) {
       console.error('Error selecting route:', error);
       // Don't clear selection on error, user can retry

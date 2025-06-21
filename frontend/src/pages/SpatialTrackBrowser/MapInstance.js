@@ -3,6 +3,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import markerManager from './mapHandlers/MarkerManager';
 import simplifiedPathManager from './mapHandlers/SimplifiedPathManager';
 import gpxPathManager from './mapHandlers/GPXPathManager';
+import { animateToRoute, animateToFitAllRoutes, animateToZoom, getOptimalZoomForRoute } from './utils/mapAnimationUtils';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -216,6 +217,44 @@ export const getSelectedRouteId = () => {
   return gpxPathManager.getSelectedRouteId();
 };
 
+// Animate map view to a specific route
+export const animateMapToRoute = (route, options = {}) => {
+  if (!mapInstance) {
+    console.warn('No map instance available for animation');
+    return;
+  }
+  
+  animateToRoute(mapInstance, route, options);
+};
+
+// Animate map view to fit all routes
+export const animateMapToFitAllRoutes = (routes, options = {}) => {
+  if (!mapInstance) {
+    console.warn('No map instance available for fit all animation');
+    return;
+  }
+  
+  animateToFitAllRoutes(mapInstance, routes, options);
+};
+
+// Animate map to specific zoom level
+export const animateMapToZoom = (zoomLevel, options = {}) => {
+  if (!mapInstance) {
+    console.warn('No map instance available for zoom animation');
+    return;
+  }
+  
+  animateToZoom(mapInstance, zoomLevel, options);
+};
+
+// Get optimal zoom level for a route
+export const getRouteOptimalZoom = (route) => {
+  if (!mapInstance) return 10;
+  
+  const container = mapInstance.getContainer();
+  return getOptimalZoomForRoute(route, container);
+};
+
 const handleResize = () => {
   resize();
 };
@@ -259,5 +298,9 @@ export default {
   clearGPXError,
   getGPXLoadingStats,
   getSelectedRouteId,
+  animateMapToRoute,
+  animateMapToFitAllRoutes,
+  animateMapToZoom,
+  getRouteOptimalZoom,
   destroyMap
 };
