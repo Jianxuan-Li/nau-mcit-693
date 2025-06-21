@@ -62,6 +62,7 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 			{
 				public.GET("/routes", publicRouteHandler.GetAllRoutes) // Get all routes from all users
 				public.GET("/routes/spatial", spatialRouteHandler.GetRoutesInBounds) // Get routes within map bounds
+				public.GET("/download/routes/:id", publicRouteHandler.GeneratePublicDownloadURL) // Generate download URL for any route (public access)
 			}
 
 			// Download routes (authenticated but can download any route)

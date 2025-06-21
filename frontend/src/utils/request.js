@@ -156,6 +156,29 @@ export const publicRoutesApi = {
     const endpoint = queryParams ? `/public/routes?${queryParams}` : '/public/routes';
     return request(endpoint, { withAuth: false });
   },
+
+  getBySpatialExtent: async (bounds, options = {}) => {
+    const { page = 1, limit = 50 } = options;
+    const params = new URLSearchParams({
+      min_lat: bounds.min_lat.toString(),
+      max_lat: bounds.max_lat.toString(),
+      min_lng: bounds.min_lng.toString(),
+      max_lng: bounds.max_lng.toString(),
+      page: page.toString(),
+      limit: limit.toString()
+    });
+    
+    return request(`/public/routes/spatial?${params.toString()}`, { withAuth: false });
+  },
+
+  // Get download URL for public access (for unregistered users)
+  // Note: Uses shorter expiration time (1 minute) for security
+  getDownloadUrl: async (routeId) => {
+    return request(`/public/download/routes/${routeId}`, { 
+      withAuth: false,
+      timeout: 30000 // 30 second timeout for URL generation
+    });
+  },
 };
 
 export default request;

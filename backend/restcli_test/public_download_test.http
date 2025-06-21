@@ -1,0 +1,23 @@
+### Test public download URL generation (no authentication required)
+GET http://localhost:8000/api/v1/public/download/routes/0b6a8c81-2261-4130-b909-5d9ba04a66fa
+Content-Type: application/json
+
+###
+
+### Test public download URL generation with invalid route ID
+GET http://localhost:8000/api/v1/public/download/routes/invalid-route-id
+Content-Type: application/json
+
+###
+
+### Test public download URL generation with non-existent route ID
+GET http://localhost:8000/api/v1/public/download/routes/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+
+###
+
+# Test Notes:
+# - This endpoint does NOT require authentication
+# - Download URLs expire in 1 minute (PublicDownloadURLExpirationMinutes = 1)
+# - Only returns URLs for routes from active users
+# - Route IDs can be obtained from the spatial routes endpoint

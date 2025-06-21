@@ -18,6 +18,8 @@ import (
 const (
 	// DownloadURLExpirationMinutes is the fixed expiration time for download URLs
 	DownloadURLExpirationMinutes = 10
+	// PublicDownloadURLExpirationMinutes is the expiration time for public download URLs (shorter for security)
+	PublicDownloadURLExpirationMinutes = 1
 )
 
 type PublicRouteHandler struct {
@@ -277,6 +279,90 @@ func (h *PublicRouteHandler) GenerateDownloadURL(c *gin.Context) {
 	// Log the download request for audit purposes
 	log.Printf("INFO: Download URL generated successfully for route %s (%s) by user %s, expires at %s", 
 		routeID, route.Name, userID.(string), expiresAt)
+
+	c.JSON(http.StatusOK, gin.H{
+		"download_url": presignedURL,
+		"expires_at":   expiresAt,
+		"route_info": gin.H{
+			"id":           route.ID,
+			"name":         route.Name,
+			"filename":     route.Filename,
+			"file_size":    route.FileSize,
+			"creator_name": route.CreatorName,
+		},
+	})
+}
+
+// GeneratePublicDownloadURL generates a presigned URL for downloading a GPX file (public access, no authentication required)
+// Note: Uses shorter expiration time (1 minute) for security
+func (h *PublicRouteHandler) GeneratePublicDownloadURL(c *gin.Context) {
+	routeID := c.Param("id")
+	if routeID == "" {
+		log.Printf("ERROR: GeneratePublicDownloadURL - Route ID is required")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Route ID is required",
+		})
+		return
+	}
+
+	log.Printf("INFO: Generating public download URL for route %s", routeID)
+
+	// Get route information and R2 object key
+	query := `
+		SELECT r.id, r.user_id, r.name, r.filename, r.r2_object_key, r.file_size,
+		       u.name as creator_name
+		FROM routes r
+		JOIN users u ON r.user_id = u.id
+		WHERE r.id = $1 AND u.is_active = true
+	`
+
+	var route struct {
+		ID           string `json:"id"`
+		UserID       string `json:"user_id"`
+		Name         string `json:"name"`
+		Filename     string `json:"filename"`
+		R2ObjectKey  string `json:"r2_object_key"`
+		FileSize     int64  `json:"file_size"`
+		CreatorName  string `json:"creator_name"`
+	}
+
+	ctx := context.Background()
+	err := h.db.QueryRow(ctx, query, routeID).Scan(
+		&route.ID, &route.UserID, &route.Name, &route.Filename,
+		&route.R2ObjectKey, &route.FileSize, &route.CreatorName,
+	)
+
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			log.Printf("WARN: Route not found for public download URL generation: %s", routeID)
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Route not found",
+			})
+			return
+		}
+		log.Printf("ERROR: Failed to fetch route for public download URL generation %s: %v", routeID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to fetch route",
+		})
+		return
+	}
+
+	// Generate presigned URL for file access with shorter expiration
+	log.Printf("INFO: Generating public presigned URL for route file: %s", route.R2ObjectKey)
+	presignedURL, err := h.storage.GetPresignedURLWithFilename(route.R2ObjectKey, time.Duration(PublicDownloadURLExpirationMinutes)*time.Minute, utils.GenerateGPXFileName(route.Name, route.ID))
+	if err != nil {
+		log.Printf("ERROR: Failed to generate public presigned URL for %s: %v", route.R2ObjectKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to generate download URL",
+		})
+		return
+	}
+
+	expiresAt := time.Now().Add(time.Duration(PublicDownloadURLExpirationMinutes) * time.Minute).Format(time.RFC3339)
+
+	// Log the public download request for audit purposes
+	log.Printf("INFO: Public download URL generated successfully for route %s (%s), expires at %s", 
+		routeID, route.Name, expiresAt)
 
 	c.JSON(http.StatusOK, gin.H{
 		"download_url": presignedURL,

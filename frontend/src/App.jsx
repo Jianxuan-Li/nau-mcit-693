@@ -11,6 +11,7 @@ import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import SettingsPage from './pages/SettingsPage';
 import { AuthProvider } from './contexts/AuthContext';
+import SpatialTrackBrowser from './pages/SpatialTrackBrowser';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/spatial-track-browser" element={<SpatialTrackBrowser />} />
           </Routes>
         </main>
       </div>
