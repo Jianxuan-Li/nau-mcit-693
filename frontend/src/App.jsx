@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
-import TrackBrowser from './pages/TrackBrowser';
+// import TrackBrowser from './pages/TrackBrowser';
 import TrackUpload from './pages/TrackUpload';
 import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
@@ -21,7 +21,7 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/browse" element={<TrackBrowser />} />
+            <Route path="/browse" element={<SpatialTrackBrowser />} />
             <Route path="/upload" element={<TrackUpload />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/login" element={<LoginPage />} />
@@ -29,7 +29,6 @@ function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/spatial-track-browser" element={<SpatialTrackBrowser />} />
           </Routes>
         </main>
       </div>
