@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
-// import TrackBrowser from './pages/TrackBrowser';
 import TrackUpload from './pages/TrackUpload';
 import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';

@@ -1,10 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { initMap, isReady, onLoad, updateStyle } from '../MapInstance';
+import { initMap, isReady, onLoad, updateStyle, isBoundsLoading, isBoundsPending } from '../MapInstance';
 
 const SpatialMapComponent = ({ className = '', onMapReady, loading = false, routesCount = 0 }) => {
   const mapContainer = useRef(null);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/outdoors-v12');
   const [mapReady, setMapReady] = useState(false);
+  const [boundsLoading, setBoundsLoading] = useState(false);
+  const [boundsPending, setBoundsPending] = useState(false);
 
   // Initialize map using singleton
   useEffect(() => {
@@ -43,6 +45,22 @@ const SpatialMapComponent = ({ className = '', onMapReady, loading = false, rout
     updateStyle(mapStyle);
   }, [mapStyle]);
 
+  // Monitor bounds loading and pending states
+  useEffect(() => {
+    const checkBoundsStates = () => {
+      setBoundsLoading(isBoundsLoading());
+      setBoundsPending(isBoundsPending());
+    };
+
+    // Check initially
+    checkBoundsStates();
+
+    // Set up an interval to check bounds states
+    const interval = setInterval(checkBoundsStates, 100);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Map style options
   const mapStyleOptions = [
     { value: 'mapbox://styles/mapbox/outdoors-v12', label: 'Outdoors' },
@@ -75,6 +93,26 @@ const SpatialMapComponent = ({ className = '', onMapReady, loading = false, rout
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto mb-2"></div>
             <p className="text-sm text-gray-600">Loading spatial map...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Bounds Pending Overlay */}
+      {mapReady && boundsPending && !boundsLoading && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-orange-50 border border-orange-200 rounded-lg shadow-lg px-4 py-2 z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-orange-400 animate-pulse"></div>
+            <p className="text-sm text-orange-700">New routes will load in 3s...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Bounds Loading Overlay */}
+      {mapReady && boundsLoading && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg px-4 py-2 z-10">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
+            <p className="text-sm text-gray-700">Loading routes...</p>
           </div>
         </div>
       )}

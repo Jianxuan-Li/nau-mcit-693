@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SpatialMapComponent from './components/SpatialMapComponent';
 import SpatialTrackCard from './components/SpatialTrackCard';
 import { publicRoutesApi } from '../../utils/request';
@@ -11,7 +11,9 @@ import {
   isGPXLoaded,
   isGPXLoading,
   getGPXError,
-  animateMapToRoute
+  animateMapToRoute,
+  onBoundChange,
+  offBoundChange
 } from './MapInstance';
 import { convertRoutesToMarkerData, convertRoutesToPathData } from './utils/geoJsonUtils';
 
@@ -22,18 +24,30 @@ const SpatialTrackBrowserLayout = () => {
   const [error, setError] = useState(null);
   const [selectedRoute, setSelectedRoute] = useState(null);
 
+  // Set up bound change callback
+  useEffect(() => {
+    // Set up the debounced bound change callback
+    onBoundChange(fetchSpatialRoutes);
+
+    // Cleanup on unmount
+    return () => {
+      offBoundChange();
+    };
+  }, []);
+
   // Function to fetch routes based on map bounds
-  const fetchSpatialRoutes = async () => {
+  const fetchSpatialRoutes = async (bounds = null) => {
     try {
       setLoading(true);
       setError(null);
       
-      const bounds = getBounds();
-      if (!bounds) {
+      // Use provided bounds or get current bounds
+      const targetBounds = bounds || getBounds();
+      if (!targetBounds) {
         return;
       }
 
-      const response = await publicRoutesApi.getBySpatialExtent(bounds, { limit: 50 });
+      const response = await publicRoutesApi.getBySpatialExtent(targetBounds, { limit: 50 });
       
       const routesData = response.routes || [];
       setRoutes(routesData);

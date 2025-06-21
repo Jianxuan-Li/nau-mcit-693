@@ -11,6 +11,13 @@ let mapInstance = null;
 let mapReady = false;
 let loadCallbacks = [];
 
+// Bound change detection state
+let currentBounds = null;
+let boundChangeCallback = null;
+let boundChangeTimeout = null;
+let isLoadingBounds = false;
+let isPendingLoad = false;
+
 // Default map configuration
 const DEFAULT_CONFIG = {
   style: 'mapbox://styles/mapbox/outdoors-v12',
@@ -20,6 +27,56 @@ const DEFAULT_CONFIG = {
   dragRotate: false,
   projection: 'mercator', // Use flat mercator projection instead of globe
   renderWorldCopies: false // Prevent world copies in flat projection
+};
+
+// Utility function to compare bounds with tolerance
+const boundsEqual = (bounds1, bounds2, tolerance = 0.0001) => {
+  if (!bounds1 || !bounds2) return false;
+  return Math.abs(bounds1.min_lat - bounds2.min_lat) < tolerance &&
+         Math.abs(bounds1.max_lat - bounds2.max_lat) < tolerance &&
+         Math.abs(bounds1.min_lng - bounds2.min_lng) < tolerance &&
+         Math.abs(bounds1.max_lng - bounds2.max_lng) < tolerance;
+};
+
+// Handle bound changes with debouncing
+const handleBoundChange = () => {
+  if (!mapInstance || !boundChangeCallback) return;
+
+  const newBounds = getBounds();
+  if (!newBounds) return;
+
+  // Only proceed if bounds have actually changed
+  if (boundsEqual(currentBounds, newBounds)) return;
+
+  // Clear existing timeout
+  if (boundChangeTimeout) {
+    clearTimeout(boundChangeTimeout);
+  }
+
+  // Set pending state immediately
+  isPendingLoad = true;
+
+  // Set new timeout for 3 seconds
+  boundChangeTimeout = setTimeout(() => {
+    currentBounds = newBounds;
+    isPendingLoad = false;
+    isLoadingBounds = true;
+    
+    // Call the callback and handle the promise
+    Promise.resolve(boundChangeCallback(newBounds))
+      .finally(() => {
+        isLoadingBounds = false;
+      });
+  }, 3000);
+};
+
+// Set up bound change listeners
+const setupBoundChangeListeners = () => {
+  if (!mapInstance) return;
+
+  // Listen for map movement events
+  mapInstance.on('moveend', handleBoundChange);
+  mapInstance.on('zoomend', handleBoundChange);
 };
 
 export const initMap = (container, options = {}) => {
@@ -35,6 +92,12 @@ export const initMap = (container, options = {}) => {
     mapInstance.on('load', () => {
       mapReady = true;
       mapInstance.resize();
+
+      // Set up bound change listeners
+      setupBoundChangeListeners();
+
+      // Initialize current bounds
+      currentBounds = getBounds();
 
       // Execute all pending load callbacks
       loadCallbacks.forEach(callback => callback(mapInstance));
@@ -99,6 +162,36 @@ export const getBounds = () => {
     };
   }
   return null;
+};
+
+// Set callback for bound changes
+export const onBoundChange = (callback) => {
+  boundChangeCallback = callback;
+};
+
+// Remove bound change callback
+export const offBoundChange = () => {
+  boundChangeCallback = null;
+  if (boundChangeTimeout) {
+    clearTimeout(boundChangeTimeout);
+    boundChangeTimeout = null;
+  }
+  isPendingLoad = false;
+};
+
+// Check if bounds are currently loading
+export const isBoundsLoading = () => {
+  return isLoadingBounds;
+};
+
+// Check if bounds load is pending
+export const isBoundsPending = () => {
+  return isPendingLoad;
+};
+
+// Get current bounds (cached)
+export const getCurrentBounds = () => {
+  return currentBounds;
 };
 
 // Add or update markers for routes using MarkerManager
@@ -265,6 +358,13 @@ export const destroyMap = () => {
     clearPaths();
     gpxPathManager.clearAllGPXData(mapInstance);
     window.removeEventListener('resize', handleResize);
+    
+    // Clean up bound change state
+    offBoundChange();
+    currentBounds = null;
+    isLoadingBounds = false;
+    isPendingLoad = false;
+    
     mapInstance.remove();
     mapInstance = null;
     mapReady = false;
@@ -280,6 +380,11 @@ export default {
   updateStyle,
   resize,
   getBounds,
+  onBoundChange,
+  offBoundChange,
+  isBoundsLoading,
+  isBoundsPending,
+  getCurrentBounds,
   updateRouteMarkers,
   clearMarkers,
   getMarkers,

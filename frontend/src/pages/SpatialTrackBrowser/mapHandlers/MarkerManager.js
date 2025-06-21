@@ -29,14 +29,16 @@ class MarkerManager {
     `;
     el.textContent = number;
     
-    // Add hover effect
-    el.addEventListener('mouseenter', () => {
-      el.style.transform = 'scale(1.1)';
-    });
+    // // Add hover effect
+    // el.addEventListener('mouseenter', () => {
+    //   el.style.transform = 'scale(1.1)';
+    //   el.style.transformOrigin = 'center center';
+    // });
     
-    el.addEventListener('mouseleave', () => {
-      el.style.transform = 'scale(1)';
-    });
+    // el.addEventListener('mouseleave', () => {
+    //   el.style.transform = 'scale(1)';
+    //   el.style.transformOrigin = 'center center';
+    // });
     
     return el;
   }
@@ -44,7 +46,6 @@ class MarkerManager {
   // Add or update markers for routes with simplified interface
   updateRouteMarkers(routeMarkers, mapInstance) {
     if (!mapInstance) {
-      console.warn('No map instance available for adding markers');
       return;
     }
 
@@ -72,8 +73,6 @@ class MarkerManager {
         this.addMarkerFromData(routeMarker, mapInstance);
       }
     });
-
-    console.log(`Marker status: ${this.markers.size} markers on map for ${routeMarkers.length} routes`);
   }
 
   // Add marker from simplified data structure
@@ -81,12 +80,10 @@ class MarkerManager {
     const { routeId, centerPoint, displayNumber, routeName } = routeMarker;
     
     if (this.markers.has(routeId)) {
-      console.log(`Marker for route ${routeId} already exists, skipping`);
       return;
     }
 
     if (!centerPoint || !centerPoint.lat || !centerPoint.lng) {
-      console.warn(`Route ${routeId} has no valid center_point, skipping marker`);
       return;
     }
 
@@ -147,7 +144,6 @@ class MarkerManager {
     this.markers.clear();
     this.routeNumberMap.clear();
     this.numberCounter = 0;
-    console.log('Cleared all markers');
   }
 
   // Handle marker click
