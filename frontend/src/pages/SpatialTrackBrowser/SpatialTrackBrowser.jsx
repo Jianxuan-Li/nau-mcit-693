@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SpatialMapComponent from './components/SpatialMapComponent';
 import SpatialTrackCard from './components/SpatialTrackCard';
+import DetailModal from './components/DetailModal';
 import { publicRoutesApi } from '../../utils/request';
 import { 
   getBounds, 
@@ -25,6 +26,8 @@ const SpatialTrackBrowserLayout = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedRoute, setSelectedRoute] = useState(null);
+  const [detailRoute, setDetailRoute] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Set up bound change callback
   useEffect(() => {
@@ -110,6 +113,17 @@ const SpatialTrackBrowserLayout = () => {
     }
   };
 
+  // Handle detail modal
+  const handleDetailClick = (route) => {
+    setDetailRoute(route);
+    setShowDetailModal(true);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setDetailRoute(null);
+  };
+
   return (
     <div
       className="flex flex-col overflow-hidden"
@@ -177,6 +191,7 @@ const SpatialTrackBrowserLayout = () => {
                       track={route}
                       isSelected={selectedRoute?.id === route.id}
                       onSelect={() => handleRouteSelect(route)}
+                      onDetailClick={handleDetailClick}
                       isGPXLoaded={isGPXLoaded(route.id)}
                       isGPXLoading={isGPXLoading(route.id)}
                       gpxError={getGPXError(route.id)}
@@ -193,6 +208,13 @@ const SpatialTrackBrowserLayout = () => {
           </div>
         </div>
       </div>
+
+      {/* Detail Modal */}
+      <DetailModal 
+        track={detailRoute}
+        isOpen={showDetailModal}
+        onClose={closeDetailModal}
+      />
     </div>
   );
 };
