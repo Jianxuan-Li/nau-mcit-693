@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { publicRoutesApi } from '../../../utils/request';
 
 const SpatialTrackCard = ({ 
   track, 
@@ -8,6 +9,8 @@ const SpatialTrackCard = ({
   isGPXLoading = false,
   gpxError = null
 }) => {
+  const [downloading, setDownloading] = useState(false);
+
   const handleClick = () => {
     if (onSelect) {
       onSelect(track);
@@ -18,6 +21,28 @@ const SpatialTrackCard = ({
     e.stopPropagation();
     if (onSelect) {
       onSelect(track);
+    }
+  };
+
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+    
+    try {
+      setDownloading(true);
+      const response = await publicRoutesApi.getDownloadUrl(track.id);
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = response.download_url;
+      link.download = `${track.name || 'route'}.gpx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download failed. Please try again.');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -93,12 +118,36 @@ const SpatialTrackCard = ({
         </div>
       )}
       
-      {/* Bottom Row: Difficulty and Status */}
+      {/* Bottom Row: Difficulty, Download Button and Status */}
       <div className="flex items-center justify-between">
-        {/* Difficulty Badge */}
-        <span className={`inline-block px-2 py-1 text-xs rounded-full ${getDifficultyStyle(track.difficulty)}`}>
-          {track.difficulty || 'unknown'}
-        </span>
+        <div className="flex items-center gap-2">
+          {/* Difficulty Badge */}
+          <span className={`inline-block px-2 py-1 text-xs rounded-full ${getDifficultyStyle(track.difficulty)}`}>
+            {track.difficulty || 'unknown'}
+          </span>
+          
+          {/* Download Button */}
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Download GPX file"
+          >
+            {downloading ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-t border-b border-blue-600"></div>
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+                <span>Download</span>
+              </>
+            )}
+          </button>
+        </div>
         
         {/* GPX Status (only show for selected track) */}
         {isSelected && (
