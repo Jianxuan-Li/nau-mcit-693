@@ -45,12 +45,12 @@ function HomePage() {
             </p>
           </div>
           <div className="flex justify-center gap-6">
-            <Link
-              to="/browse"
+            <a
+              href="/browse"
               className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               Browse Tracks
-            </Link>
+            </a>
             <Link
               to="/upload"
               className="px-8 py-3 bg-white text-green-600 border-2 border-green-600 rounded-lg hover:bg-green-50 transition-colors"
@@ -128,12 +128,12 @@ function HomePage() {
             ))}
           </div>
           <div className="text-center mt-12">
-            <Link
-              to="/browse"
+            <a
+              href="/browse"
               className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               View All Tracks
-            </Link>
+            </a>
           </div>
         </div>
       </section>

@@ -23,12 +23,12 @@ function Header() {
           </Link>
 
           <div className="hidden md:flex space-x-6">
-            <Link
-              to="/browse"
+            <a
+              href="/browse"
               className="px-4 py-2 rounded hover:bg-green-500 transition-colors"
             >
               Browse Tracks
-            </Link>
+            </a>
             <Link
               to="/upload"
               className="px-4 py-2 rounded hover:bg-green-500 transition-colors"
