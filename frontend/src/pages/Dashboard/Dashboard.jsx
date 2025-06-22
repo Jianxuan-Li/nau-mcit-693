@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { routesApi } from '../utils/request';
-import { useAuth } from '../contexts/AuthContext';
-import ConfirmModal from '../components/ConfirmModal';
-import Modal from '../components/Modal';
+import { routesApi } from '../../utils/request';
+import { useAuth } from '../../contexts/AuthContext';
+import ConfirmModal from '../../components/ConfirmModal';
+import Modal from '../../components/Modal';
+import EditRouteModal from './components/EditRouteModal';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ function Dashboard() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, routeId: null, routeName: '' });
   const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '' });
   const [downloadingId, setDownloadingId] = useState(null);
+  const [editModal, setEditModal] = useState({ isOpen: false, route: null });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -93,6 +95,27 @@ function Dashboard() {
       });
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleEditClick = (route) => {
+    setEditModal({ isOpen: true, route });
+  };
+
+  const handleEditSave = async (routeId, updateData) => {
+    try {
+      await routesApi.update(routeId, updateData);
+      // Refresh the entire list to get the latest data
+      await fetchRoutes();
+      setModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Track Updated',
+        message: 'The track has been successfully updated.'
+      });
+    } catch (error) {
+      console.error('Error updating route:', error);
+      throw error; // Re-throw to let the modal handle it
     }
   };
 
@@ -283,6 +306,13 @@ function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
+                          onClick={() => handleEditClick(route)}
+                          className="text-indigo-600 hover:text-indigo-900 transition-colors mr-4"
+                          title="Edit track"
+                        >
+                          Edit
+                        </button>
+                        <button
                           onClick={() => handleDownloadClick(route.id, route.name)}
                           disabled={downloadingId === route.id}
                           className={`text-blue-600 hover:text-blue-900 transition-colors mr-4 ${downloadingId === route.id ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -342,6 +372,13 @@ function Dashboard() {
         >
           {modal.message}
         </Modal>
+
+        <EditRouteModal
+          isOpen={editModal.isOpen}
+          onClose={() => setEditModal({ isOpen: false, route: null })}
+          route={editModal.route}
+          onSave={handleEditSave}
+        />
       </div>
     </div>
   );
