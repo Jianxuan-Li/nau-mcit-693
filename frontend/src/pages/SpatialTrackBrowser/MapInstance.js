@@ -67,7 +67,7 @@ const handleBoundChange = () => {
       .finally(() => {
         isLoadingBounds = false;
       });
-  }, 3000);
+  }, 1000);
 };
 
 // Set up bound change listeners
