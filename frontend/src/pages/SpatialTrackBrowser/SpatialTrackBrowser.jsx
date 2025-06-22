@@ -116,10 +116,10 @@ const SpatialTrackBrowserLayout = () => {
       style={{ height: 'calc(100vh - 64px)' }}
     >
       {/* Main content area */}
-      <div className="flex-1 flex overflow-hidden p-6 gap-6">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-6 gap-6">
 
-        {/* Map takes 60% of desktop width */}
-        <div className="w-3/5 bg-white rounded-lg shadow">
+        {/* Map takes 50% height on mobile, 60% width on desktop */}
+        <div className="flex-1 md:w-3/5 bg-white rounded-lg shadow">
           <SpatialMapComponent 
             className="w-full h-full" 
             onMapReady={fetchSpatialRoutes}
@@ -128,8 +128,8 @@ const SpatialTrackBrowserLayout = () => {
           />
         </div>
 
-        {/* Track list takes 40% of desktop width */}
-        <div className="w-2/5 bg-white rounded-lg shadow border border-gray-200 overflow-y-auto">
+        {/* Track list takes 50% height on mobile, 40% width on desktop */}
+        <div className="flex-1 md:w-2/5 bg-white rounded-lg shadow border border-gray-200 overflow-y-auto">
           <div className="p-4 h-full">
             {loading ? (
               <div className="flex justify-center items-center py-8">
