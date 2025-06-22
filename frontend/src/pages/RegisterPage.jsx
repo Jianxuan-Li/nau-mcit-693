@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { userApi } from '../utils/request';
+import PasswordStrengthIndicator from '../components/PasswordStrengthIndicator';
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -32,49 +33,12 @@ function RegisterPage() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState({
-    score: 0,
-    message: ''
-  });
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  const checkPasswordStrength = (password) => {
-    let score = 0;
-    let message = '';
-
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[a-z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-
-    switch (score) {
-      case 0:
-      case 1:
-        message = 'Very Weak';
-        break;
-      case 2:
-        message = 'Weak';
-        break;
-      case 3:
-        message = 'Medium';
-        break;
-      case 4:
-        message = 'Strong';
-        break;
-      case 5:
-        message = 'Very Strong';
-        break;
-      default:
-        message = '';
-    }
-
-    return { score, message };
-  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -93,10 +57,8 @@ function RegisterPage() {
       }));
     }
 
-    // Check password strength
+    // Check password length
     if (name === 'password') {
-      const strength = checkPasswordStrength(value);
-      setPasswordStrength(strength);
       setErrors(prev => ({
         ...prev,
         password: value.length < 8 ? 'Password must be at least 8 characters long' : ''
@@ -228,27 +190,7 @@ function RegisterPage() {
               } px-4 py-3 text-base`}
               required
             />
-            {formData.password && (
-              <div className="mt-1">
-                <div className="flex items-center">
-                  <div className="flex-1 h-2 bg-gray-200 rounded-full">
-                    <div
-                      className={`h-2 rounded-full ${
-                        passwordStrength.score <= 2
-                          ? 'bg-red-500'
-                          : passwordStrength.score <= 3
-                          ? 'bg-yellow-500'
-                          : 'bg-green-500'
-                      }`}
-                      style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-sm text-gray-600">
-                    {passwordStrength.message}
-                  </span>
-                </div>
-              </div>
-            )}
+            <PasswordStrengthIndicator password={formData.password} className="mt-1" />
             {errors.password && (
               <p className="mt-1 text-sm text-red-600">{errors.password}</p>
             )}

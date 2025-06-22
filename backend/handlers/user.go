@@ -195,3 +195,69 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		"user": response,
 	})
 }
+
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+		})
+		return
+	}
+
+	var req models.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request data",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	// Get current user password hash from database
+	var currentPasswordHash string
+	err := h.db.QueryRow(ctx, "SELECT password_hash FROM users WHERE id = $1", userID).Scan(&currentPasswordHash)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to retrieve user information",
+		})
+		return
+	}
+
+	// Verify current password
+	if !utils.CheckPasswordHash(req.CurrentPassword, currentPasswordHash) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Current password is incorrect",
+		})
+		return
+	}
+
+	// Hash new password
+	newPasswordHash, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to process new password",
+		})
+		return
+	}
+
+	// Update password in database
+	_, err = h.db.Exec(ctx, 
+		"UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3",
+		newPasswordHash, time.Now(), userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update password",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password updated successfully",
+	})
+}

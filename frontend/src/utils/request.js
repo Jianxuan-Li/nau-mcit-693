@@ -104,6 +104,14 @@ export const userApi = {
       return { valid: false, error: error.message };
     }
   },
+
+  // Change password
+  changePassword: async (passwordData) => {
+    return request('/auth/change-password', {
+      method: 'PUT',
+      body: passwordData,
+    });
+  },
 };
 
 export const routesApi = {

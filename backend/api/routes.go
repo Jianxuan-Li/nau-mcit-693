@@ -44,6 +44,7 @@ func SetupRouter(db *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 			auth.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
 			{
 				auth.GET("/me", userHandler.GetCurrentUser)
+				auth.PUT("/change-password", userHandler.ChangePassword)
 			}
 
 			// Private route routes (protected) - user's own routes
