@@ -17,6 +17,8 @@ let boundChangeCallback = null;
 let boundChangeTimeout = null;
 let isLoadingBounds = false;
 let isPendingLoad = false;
+let hasNewBounds = false;
+let pendingBounds = null;
 
 // Default map configuration
 const DEFAULT_CONFIG = {
@@ -38,15 +40,19 @@ const boundsEqual = (bounds1, bounds2, tolerance = 0.0001) => {
          Math.abs(bounds1.max_lng - bounds2.max_lng) < tolerance;
 };
 
-// Handle bound changes with debouncing
+// Handle bound changes - now only tracks changes without automatic loading
 const handleBoundChange = () => {
-  if (!mapInstance || !boundChangeCallback) return;
+  if (!mapInstance) return;
 
   const newBounds = getBounds();
   if (!newBounds) return;
 
   // Only proceed if bounds have actually changed
-  if (boundsEqual(currentBounds, newBounds)) return;
+  if (boundsEqual(currentBounds, newBounds)) {
+    hasNewBounds = false;
+    pendingBounds = null;
+    return;
+  }
 
   // Clear existing timeout
   if (boundChangeTimeout) {
@@ -55,18 +61,12 @@ const handleBoundChange = () => {
 
   // Set pending state immediately
   isPendingLoad = true;
+  hasNewBounds = true;
+  pendingBounds = newBounds;
 
-  // Set new timeout for 3 seconds
+  // Set timeout to clear pending state (no automatic loading)
   boundChangeTimeout = setTimeout(() => {
-    currentBounds = newBounds;
     isPendingLoad = false;
-    isLoadingBounds = true;
-    
-    // Call the callback and handle the promise
-    Promise.resolve(boundChangeCallback(newBounds))
-      .finally(() => {
-        isLoadingBounds = false;
-      });
   }, 1000);
 };
 
@@ -187,6 +187,8 @@ export const offBoundChange = () => {
     boundChangeTimeout = null;
   }
   isPendingLoad = false;
+  hasNewBounds = false;
+  pendingBounds = null;
 };
 
 // Check if bounds are currently loading
@@ -197,6 +199,51 @@ export const isBoundsLoading = () => {
 // Check if bounds load is pending
 export const isBoundsPending = () => {
   return isPendingLoad;
+};
+
+// Check if there are new bounds available to search
+export const hasNewBoundsToSearch = () => {
+  return hasNewBounds;
+};
+
+// Get the pending bounds that can be searched
+export const getPendingBounds = () => {
+  return pendingBounds;
+};
+
+// Manual trigger to load routes for current or pending bounds
+export const triggerBoundsSearch = () => {
+  if (!boundChangeCallback) {
+    console.warn('No bound change callback set');
+    return Promise.resolve();
+  }
+
+  let boundsToSearch;
+  
+  if (hasNewBounds && pendingBounds) {
+    // Use pending bounds if available
+    boundsToSearch = pendingBounds;
+    currentBounds = pendingBounds;
+    hasNewBounds = false;
+    pendingBounds = null;
+  } else {
+    // Use current bounds
+    boundsToSearch = getBounds();
+    if (!boundsToSearch) {
+      console.warn('No bounds available for search');
+      return Promise.resolve();
+    }
+    currentBounds = boundsToSearch;
+  }
+
+  // Set loading state
+  isLoadingBounds = true;
+  
+  // Call the callback and handle the promise
+  return Promise.resolve(boundChangeCallback(boundsToSearch))
+    .finally(() => {
+      isLoadingBounds = false;
+    });
 };
 
 // Get current bounds (cached)
@@ -394,6 +441,8 @@ export const destroyMap = () => {
     currentBounds = null;
     isLoadingBounds = false;
     isPendingLoad = false;
+    hasNewBounds = false;
+    pendingBounds = null;
     
     mapInstance.remove();
     mapInstance = null;
@@ -414,6 +463,9 @@ export default {
   offBoundChange,
   isBoundsLoading,
   isBoundsPending,
+  hasNewBoundsToSearch,
+  getPendingBounds,
+  triggerBoundsSearch,
   getCurrentBounds,
   updateRouteMarkers,
   clearMarkers,

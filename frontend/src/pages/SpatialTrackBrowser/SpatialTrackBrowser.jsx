@@ -16,7 +16,8 @@ import {
   onBoundChange,
   offBoundChange,
   hideSimplifiedPath,
-  showSimplifiedPath
+  showSimplifiedPath,
+  triggerBoundsSearch
 } from './MapInstance';
 import { convertRoutesToMarkerData, convertRoutesToPathData } from './utils/geoJsonUtils';
 
@@ -31,7 +32,7 @@ const SpatialTrackBrowserLayout = () => {
 
   // Set up bound change callback
   useEffect(() => {
-    // Set up the debounced bound change callback
+    // Set up the bound change callback (now for manual triggering only)
     onBoundChange(fetchSpatialRoutes);
 
     // Cleanup on unmount
@@ -39,6 +40,16 @@ const SpatialTrackBrowserLayout = () => {
       offBoundChange();
     };
   }, []);
+
+  // Handle manual search button click
+  const handleSearchClick = async () => {
+    try {
+      await triggerBoundsSearch();
+    } catch (error) {
+      console.error('Error triggering bounds search:', error);
+      setError('Failed to search current area');
+    }
+  };
 
   // Function to fetch routes based on map bounds
   const fetchSpatialRoutes = async (bounds = null) => {
@@ -137,6 +148,7 @@ const SpatialTrackBrowserLayout = () => {
           <SpatialMapComponent 
             className="w-full h-full" 
             onMapReady={fetchSpatialRoutes}
+            onSearchClick={handleSearchClick}
             loading={loading}
             routesCount={routes.length}
           />

@@ -1,12 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { initMap, isReady, onLoad, updateStyle, isBoundsLoading, isBoundsPending } from '../MapInstance';
+import { initMap, isReady, onLoad, updateStyle, isBoundsLoading, isBoundsPending, hasNewBoundsToSearch } from '../MapInstance';
 
-const SpatialMapComponent = ({ className = '', onMapReady, loading = false, routesCount = 0 }) => {
+const SpatialMapComponent = ({ className = '', onMapReady, onSearchClick, loading = false, routesCount = 0 }) => {
   const mapContainer = useRef(null);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/outdoors-v12');
   const [mapReady, setMapReady] = useState(false);
   const [boundsLoading, setBoundsLoading] = useState(false);
   const [boundsPending, setBoundsPending] = useState(false);
+  const [hasNewBounds, setHasNewBounds] = useState(false);
 
   // Initialize map using singleton
   useEffect(() => {
@@ -51,11 +52,12 @@ const SpatialMapComponent = ({ className = '', onMapReady, loading = false, rout
     updateStyle(mapStyle);
   }, [mapStyle]);
 
-  // Monitor bounds loading and pending states
+  // Monitor bounds loading, pending, and new bounds states
   useEffect(() => {
     const checkBoundsStates = () => {
       setBoundsLoading(isBoundsLoading());
       setBoundsPending(isBoundsPending());
+      setHasNewBounds(hasNewBoundsToSearch());
     };
 
     // Check initially
@@ -103,13 +105,18 @@ const SpatialMapComponent = ({ className = '', onMapReady, loading = false, rout
         </div>
       )}
 
-      {/* Bounds Pending Overlay */}
-      {mapReady && boundsPending && !boundsLoading && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-orange-50 border border-orange-200 rounded-lg shadow-lg px-4 py-2 z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-orange-400 animate-pulse"></div>
-            <p className="text-sm text-orange-700">New routes will load in 1s...</p>
-          </div>
+      {/* Search Button - shown when there are new bounds to search */}
+      {mapReady && hasNewBounds && !boundsLoading && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+          <button
+            onClick={onSearchClick}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg transition-colors duration-200 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span>Search Current Area</span>
+          </button>
         </div>
       )}
 
