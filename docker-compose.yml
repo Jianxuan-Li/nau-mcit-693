@@ -10,23 +10,6 @@ services:
     networks:
       - default
   
-  backend:
-    container_name: gpxbase-backend
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "0.0.0.0:8000:8000"
-    volumes:
-      - gpxbase-backend-gpxfiles:/app/gpx_files
-    env_file: .env
-    depends_on:
-      - postgis
-    networks:
-      - default
-    links:
-      - postgis:postgis
-  
   pgadmin:
     container_name: pgadmin
     image: dpage/pgadmin4
@@ -34,7 +17,7 @@ services:
       - "0.0.0.0:8001:80"
     env_file: .env
     volumes:
-      - ./pgadmin4-servers.json:/pgadmin4/servers.json
+      - ./pgadmin4-server.json:/pgadmin4/servers.json
     depends_on:
       - postgis
     networks:
@@ -43,7 +26,6 @@ services:
       - postgis:postgis
 
 volumes:
-  gpxbase-backend-pypoetrycache:
   gpxbase-backend-postgisdb:
   gpxbase-backend-gpxfiles:
 

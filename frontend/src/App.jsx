@@ -11,6 +11,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import SettingsPage from './pages/SettingsPage';
 import { AuthProvider } from './contexts/AuthContext';
 import SpatialTrackBrowser from './pages/SpatialTrackBrowser';
+import GPXEditor from './pages/GPXEditor';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/browse" element={<SpatialTrackBrowser />} />
+            <Route path="/gpx-editor" element={<GPXEditor />} />
             <Route path="/upload" element={<TrackUpload />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/login" element={<LoginPage />} />

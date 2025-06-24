@@ -9,6 +9,136 @@ class GPXPathManager {
     this.loadingGpx = new Set(); // Set of routeIds currently loading
     this.gpxErrors = new Map(); // key: routeId, value: error message
     this.selectedRouteId = null;
+    this.startEndMarkers = new Map(); // key: routeId, value: { startMarker, endMarker }
+  }
+
+  // Create start marker element
+  createStartMarkerElement() {
+    const el = document.createElement('div');
+    el.className = 'gpx-start-marker';
+    el.style.cssText = `
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      cursor: pointer;
+      position: relative;
+    `;
+    
+    // Add inner dot
+    const innerDot = document.createElement('div');
+    innerDot.style.cssText = `
+      width: 6px;
+      height: 6px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    `;
+    el.appendChild(innerDot);
+    
+    return el;
+  }
+
+  // Create end marker element
+  createEndMarkerElement() {
+    const el = document.createElement('div');
+    el.className = 'gpx-end-marker';
+    el.style.cssText = `
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 20px solid #dc2626;
+      cursor: pointer;
+      position: relative;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    `;
+    
+    // Add white border effect
+    const borderEl = document.createElement('div');
+    borderEl.style.cssText = `
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 24px solid white;
+      position: absolute;
+      top: -2px;
+      left: -10px;
+      z-index: -1;
+    `;
+    el.appendChild(borderEl);
+    
+    return el;
+  }
+
+  // Add start and end markers for a GPX path
+  addStartEndMarkers(routeId, coordinates, mapInstance) {
+    if (!coordinates || coordinates.length < 2) return;
+
+    // Remove existing markers for this route
+    this.removeStartEndMarkers(routeId);
+
+    const startCoord = coordinates[0];
+    const endCoord = coordinates[coordinates.length - 1];
+
+    // Create start marker
+    const startMarkerEl = this.createStartMarkerElement();
+    const startMarker = new mapboxgl.Marker(startMarkerEl)
+      .setLngLat(startCoord)
+      .addTo(mapInstance);
+
+    // Create end marker
+    const endMarkerEl = this.createEndMarkerElement();
+    const endMarker = new mapboxgl.Marker(endMarkerEl)
+      .setLngLat(endCoord)
+      .addTo(mapInstance);
+
+    // Add tooltips
+    startMarkerEl.title = 'Start Point';
+    endMarkerEl.title = 'End Point';
+
+    // Store markers
+    this.startEndMarkers.set(routeId, {
+      startMarker,
+      endMarker
+    });
+
+    console.log(`✓ Added start/end markers for route ${routeId}`);
+  }
+
+  // Remove start and end markers for a specific route
+  removeStartEndMarkers(routeId) {
+    const markers = this.startEndMarkers.get(routeId);
+    if (markers) {
+      if (markers.startMarker) {
+        markers.startMarker.remove();
+      }
+      if (markers.endMarker) {
+        markers.endMarker.remove();
+      }
+      this.startEndMarkers.delete(routeId);
+      console.log(`Removed start/end markers for route ${routeId}`);
+    }
+  }
+
+  // Remove all start and end markers
+  removeAllStartEndMarkers() {
+    this.startEndMarkers.forEach((markers, routeId) => {
+      if (markers.startMarker) {
+        markers.startMarker.remove();
+      }
+      if (markers.endMarker) {
+        markers.endMarker.remove();
+      }
+    });
+    this.startEndMarkers.clear();
+    console.log('Removed all start/end markers');
   }
 
   // Update GPX paths - show only the selected route's full path
@@ -174,6 +304,9 @@ class GPXPathManager {
         gpxData: gpxData
       });
 
+      // Add start and end markers
+      this.addStartEndMarkers(routeId, gpxData.coordinates, mapInstance);
+
       console.log(`✓ GPX path displayed for route ${routeId}`);
     } catch (error) {
       console.error(`Failed to show GPX path for route ${routeId}:`, error);
@@ -195,6 +328,9 @@ class GPXPathManager {
         if (mapInstance.getSource(pathInfo.sourceName)) {
           mapInstance.removeSource(pathInfo.sourceName);
         }
+
+        // Remove start and end markers
+        this.removeStartEndMarkers(routeId);
 
         console.log(`Removed GPX path for route ${routeId}`);
       } catch (error) {
@@ -259,6 +395,9 @@ class GPXPathManager {
     if (mapInstance) {
       this.clearCurrentGPXPath(mapInstance);
     }
+    
+    // Remove any remaining markers
+    this.removeAllStartEndMarkers();
     
     this.loadedGpxData.clear();
     this.loadingGpx.clear();
